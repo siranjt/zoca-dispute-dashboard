@@ -115,6 +115,24 @@ export default async function DisputePage({ params }: { params: { id: string } }
           {formatAmount(dispute.amount, dispute.currency)} · reason:{' '}
           <span className="text-ink">{dispute.reason}</span>
         </p>
+
+        {/* PRINT-ONLY: Business + AM info for the PDF report */}
+        <div className="hidden print:block pt-3 mt-2 border-t border-gray-300">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-sm">
+            <div>
+              <span className="text-gray-500">Business name: </span>
+              <strong className="text-black">
+                {baseSheet?.bizname?.trim() || '—'}
+              </strong>
+            </div>
+            <div>
+              <span className="text-gray-500">Account manager: </span>
+              <strong className="text-black">
+                {baseSheet?.am_name?.trim() || '—'}
+              </strong>
+            </div>
+          </div>
+        </div>
       </header>
 
       {/* RECOMMENDATION HERO */}
@@ -167,9 +185,9 @@ export default async function DisputePage({ params }: { params: { id: string } }
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* LEFT: Stripe + Customer */}
-        <div className="lg:col-span-1 space-y-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 print:block">
+        {/* LEFT: Stripe + Customer (hidden in PDF — kept for the on-screen analyzer only) */}
+        <div className="lg:col-span-1 space-y-5 print:hidden">
           <Card title="Stripe">
             <Field label="Status" value={dispute.status.replace(/_/g, ' ')} />
             <Field label="Reason" value={dispute.reason} />
@@ -228,8 +246,8 @@ export default async function DisputePage({ params }: { params: { id: string } }
           </Card>
         </div>
 
-        {/* RIGHT: Comms + Draft */}
-        <div className="lg:col-span-2 space-y-5">
+        {/* RIGHT: Comms + Draft (Draft hidden in PDF) */}
+        <div className="lg:col-span-2 print:col-span-3 space-y-5">
           <Card title={`Communications · last 90 days · ${counts.total} events`}>
             <div className="text-xs text-ink-dim mb-3 flex flex-wrap gap-x-4 gap-y-1">
               <span>
@@ -302,9 +320,11 @@ export default async function DisputePage({ params }: { params: { id: string } }
             </div>
           </Card>
 
-          <Card title="Counter-response draft">
-            <CounterDraft draft={draft} disputeId={dispute.id} />
-          </Card>
+          <div className="print:hidden">
+            <Card title="Counter-response draft">
+              <CounterDraft draft={draft} disputeId={dispute.id} />
+            </Card>
+          </div>
         </div>
       </div>
     </div>
