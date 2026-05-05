@@ -1,11 +1,45 @@
 import Link from 'next/link';
-import { listDisputes, formatAmount, isNeedsResponse } from '@/lib/stripe';
+import { listDisputes, formatAmount, isNeedsResponse, type DisputeListItem } from '@/lib/stripe';
+import { matchCustomer, type BaseSheetRow } from '@/lib/basesheet';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function Page() {
-  let disputes: Awaited<ReturnType<typeof listDisputes>> = [];
+type TabKey = 'needs_response' | 'won' | 'lost' | 'all';
+
+const TAB_ORDER: { key: TabKey; label: string }[] = [
+  { key: 'needs_response', label: 'Needs response' },
+  { key: 'won', label: 'Won' },
+  { key: 'lost', label: 'Lost' },
+  { key: 'all', label: 'All disputes' },
+];
+
+type EnrichedDispute = DisputeListItem & { baseSheet: BaseSheetRow | null };
+
+function applyTab(disputes: EnrichedDispute[], tab: TabKey): EnrichedDispute[] {
+  switch (tab) {
+    case 'needs_response':
+      return disputes.filter(isNeedsResponse);
+    case 'won':
+      return disputes.filter((d) => d.status === 'won');
+    case 'lost':
+      return disputes.filter((d) => d.status === 'lost');
+    case 'all':
+      return disputes;
+  }
+}
+
+export default async function Page({
+  searchParams,
+}: {
+  searchParams?: { status?: string };
+}) {
+  const requestedTab = (searchParams?.status as TabKey) || 'needs_response';
+  const tab: TabKey = TAB_ORDER.some((t) => t.key === requestedTab)
+    ? (requestedTab as TabKey)
+    : 'needs_response';
+
+  let disputes: DisputeListItem[] = [];
   let error: string | null = null;
   try {
     disputes = await listDisputes({ limit: 100 });
@@ -13,12 +47,40 @@ export default async function Page() {
     error = e?.message ?? 'Unknown error';
   }
 
-  const needsResponse = disputes.filter(isNeedsResponse);
-  const underReview = disputes.filter((d) => d.status === 'warning_under_review' || d.status === 'under_review');
-  const won = disputes.filter((d) => d.status === 'won');
-  const lost = disputes.filter((d) => d.status === 'lost');
+  // Enrich each dispute with BaseSheet (single fetch, cached, linear matches)
+  let enrichmentError: string | null = null;
+  let enriched: EnrichedDispute[] = disputes.map((d) => ({ ...d, baseSheet: null }));
+  try {
+    enriched = await Promise.all(
+      disputes.map(async (d) => {
+        const baseSheet = await matchCustomer({
+          customerId: d.customerId ?? null,
+          email: d.customerEmail ?? null,
+        });
+        return { ...d, baseSheet };
+      }),
+    );
+  } catch (e: any) {
+    enrichmentError = e?.message ?? 'BaseSheet enrichment failed';
+  }
+
+  const counts: Record<TabKey, number> = {
+    needs_response: enriched.filter(isNeedsResponse).length,
+    won: enriched.filter((d) => d.status === 'won').length,
+    lost: enriched.filter((d) => d.status === 'lost').length,
+    all: enriched.length,
+  };
+
+  const visible = applyTab(enriched, tab);
+
+  const needsResponse = enriched.filter(isNeedsResponse);
+  const underReview = enriched.filter(
+    (d) => d.status === 'warning_under_review' || d.status === 'under_review',
+  );
+  const won = enriched.filter((d) => d.status === 'won');
+  const lost = enriched.filter((d) => d.status === 'lost');
   const totalDue = needsResponse.reduce((sum, d) => sum + d.amount, 0);
-  const currency = disputes[0]?.currency ?? 'usd';
+  const currency = enriched[0]?.currency ?? 'usd';
 
   const refreshTime = new Date().toLocaleTimeString('en-US', {
     hour: '2-digit',
@@ -69,8 +131,8 @@ export default async function Page() {
       <section className="rounded-2xl border border-line bg-surface/50 backdrop-blur-sm px-5 py-4 flex items-center justify-between flex-wrap gap-3">
         <div className="text-sm text-ink-muted">
           <span className="text-ink-dim mr-2">SHOWING</span>
-          <span className="text-ink font-semibold">{disputes.length}</span>
-          <span className="text-ink-dim mx-1">/ {disputes.length}</span>
+          <span className="text-ink font-semibold">{visible.length}</span>
+          <span className="text-ink-dim mx-1">/ {enriched.length}</span>
           <span className="text-ink-dim mx-3">·</span>
           <span className="text-ink-dim mr-2">LAST REFRESH</span>
           <span className="text-ink font-semibold">{refreshTime}</span>
@@ -89,8 +151,8 @@ export default async function Page() {
       <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <StatCard
           label="Total disputes"
-          value={disputes.length.toString()}
-          subtext={`${new Set(disputes.map((d) => d.customerId).filter(Boolean)).size} unique customers`}
+          value={enriched.length.toString()}
+          subtext={`${new Set(enriched.map((d) => d.customerId).filter(Boolean)).size} unique customers`}
           numberClass="text-ink"
         />
         <StatCard
@@ -98,64 +160,88 @@ export default async function Page() {
           value={needsResponse.length.toString()}
           subtext={formatAmount(totalDue, currency) + ' at risk'}
           numberClass="text-accent-pink-strong"
-          accent="pink"
         />
         <StatCard
           label="Under review"
           value={underReview.length.toString()}
           subtext="awaiting Stripe"
           numberClass="text-accent-yellow"
-          accent="yellow"
         />
         <StatCard
           label="Won"
           value={won.length.toString()}
           subtext="evidence accepted"
           numberClass="text-accent-green"
-          accent="green"
         />
         <StatCard
           label="Lost"
           value={lost.length.toString()}
           subtext="charged back"
           numberClass="text-accent-purple"
-          accent="purple"
         />
       </section>
 
-      {/* DISPUTES TABLE */}
+      {/* DISPUTES TABLE WITH TABS */}
       <section className="rounded-2xl border border-line bg-surface/40 backdrop-blur-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-line-soft flex items-center justify-between">
-          <h2 className="text-base font-semibold text-ink">All disputes</h2>
-          <span className="text-xs text-ink-dim">Click any row to analyse</span>
+        {/* Tab strip */}
+        <div className="px-5 pt-5 pb-4 flex flex-wrap items-center gap-2 border-b border-line-soft">
+          {TAB_ORDER.map((t) => {
+            const active = t.key === tab;
+            return (
+              <Link
+                key={t.key}
+                href={`/?status=${t.key}`}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition ${
+                  active
+                    ? 'border border-accent-pink-strong bg-accent-pink-bg/40 text-accent-pink'
+                    : 'border border-line text-ink-muted hover:text-ink hover:border-line-strong'
+                }`}
+              >
+                {t.label}{' '}
+                <span className={active ? 'text-ink ml-1' : 'text-ink ml-1 font-semibold'}>
+                  {counts[t.key]}
+                </span>
+              </Link>
+            );
+          })}
         </div>
+
+        {enrichmentError && (
+          <div className="px-5 py-3 text-xs text-accent-yellow bg-accent-yellow-bg/20 border-b border-line-soft">
+            BaseSheet enrichment partially failed: {enrichmentError}. Customer/AM columns may be
+            empty.
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-xs uppercase tracking-wider text-ink-dim">
-                <th className="text-left px-6 py-3 font-medium">Customer</th>
-                <th className="text-left px-6 py-3 font-medium">Amount</th>
-                <th className="text-left px-6 py-3 font-medium">Reason</th>
-                <th className="text-left px-6 py-3 font-medium">Status</th>
-                <th className="text-left px-6 py-3 font-medium">Opened</th>
-                <th className="text-left px-6 py-3 font-medium">Evidence due</th>
-                <th className="text-left px-6 py-3 font-medium"></th>
+              <tr className="text-[10px] uppercase tracking-wider text-ink-dim">
+                <th className="text-left px-5 py-3 font-medium">Customer</th>
+                <th className="text-left px-3 py-3 font-medium">Business + entity</th>
+                <th className="text-left px-3 py-3 font-medium">AM</th>
+                <th className="text-left px-3 py-3 font-medium">Amount</th>
+                <th className="text-left px-3 py-3 font-medium">Reason</th>
+                <th className="text-left px-3 py-3 font-medium">Status</th>
+                <th className="text-left px-3 py-3 font-medium">Opened</th>
+                <th className="text-left px-3 py-3 font-medium">Due</th>
+                <th className="text-right px-5 py-3 font-medium"></th>
               </tr>
             </thead>
             <tbody>
-              {disputes.length === 0 && !error && (
+              {visible.length === 0 && !error && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-16 text-center text-ink-dim">
-                    No disputes found in Stripe.
+                  <td colSpan={9} className="px-5 py-16 text-center text-ink-dim">
+                    No disputes match this filter.
                   </td>
                 </tr>
               )}
-              {disputes.map((d) => (
+              {visible.map((d) => (
                 <tr
                   key={d.id}
                   className="border-t border-line-soft hover:bg-elevated/40 transition group"
                 >
-                  <td className="px-6 py-4">
+                  <td className="px-5 py-4">
                     <Link href={`/dispute/${d.id}`} className="block">
                       <div className="font-medium text-ink group-hover:text-accent-pink transition">
                         {d.customerName || d.customerEmail || '—'}
@@ -163,22 +249,42 @@ export default async function Page() {
                       <div className="text-xs text-ink-dim mt-0.5">{d.customerEmail}</div>
                     </Link>
                   </td>
-                  <td className="px-6 py-4 font-medium text-ink tabular-nums">
+                  <td className="px-3 py-4">
+                    {d.baseSheet ? (
+                      <>
+                        <div className="text-ink">{d.baseSheet.bizname}</div>
+                        <div
+                          className="text-[10px] text-ink-dim font-mono mt-0.5"
+                          title={d.baseSheet.entity_id}
+                        >
+                          {d.baseSheet.entity_id?.slice(0, 18)}…
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-xs text-ink-dim italic">no BaseSheet match</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-4 text-ink-muted">
+                    {d.baseSheet?.am_name?.trim() || (
+                      <span className="text-ink-dim">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-4 font-medium text-ink tabular-nums">
                     {formatAmount(d.amount, d.currency)}
                   </td>
-                  <td className="px-6 py-4 text-ink-muted">{d.reason}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-3 py-4 text-ink-muted text-xs">{d.reason}</td>
+                  <td className="px-3 py-4">
                     <StatusPill status={d.status} />
                   </td>
-                  <td className="px-6 py-4 text-ink-muted tabular-nums">
+                  <td className="px-3 py-4 text-ink-muted tabular-nums text-xs">
                     {new Date(d.created * 1000).toISOString().slice(0, 10)}
                   </td>
-                  <td className="px-6 py-4 text-ink-muted tabular-nums">
+                  <td className="px-3 py-4 text-ink-muted tabular-nums text-xs">
                     {d.evidenceDueBy
                       ? new Date(d.evidenceDueBy * 1000).toISOString().slice(0, 10)
                       : '—'}
                   </td>
-                  <td className="px-6 py-4 text-right">
+                  <td className="px-5 py-4 text-right whitespace-nowrap">
                     <Link
                       href={`/dispute/${d.id}`}
                       className="text-accent-pink hover:text-accent-pink-strong text-sm font-medium"
@@ -212,13 +318,11 @@ function StatCard({
   value,
   subtext,
   numberClass,
-  accent,
 }: {
   label: string;
   value: string;
   subtext: string;
   numberClass: string;
-  accent?: 'pink' | 'purple' | 'yellow' | 'green' | 'red';
 }) {
   return (
     <div className="rounded-2xl border border-line bg-surface/50 backdrop-blur-sm p-5 group hover:border-line-strong transition relative">
