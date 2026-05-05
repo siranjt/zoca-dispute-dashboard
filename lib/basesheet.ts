@@ -1,5 +1,6 @@
 import 'server-only';
 import Papa from 'papaparse';
+import { unstable_cache } from 'next/cache';
 
 export type BaseSheetRow = {
   entity_id: string;
@@ -18,9 +19,6 @@ export type BaseSheetRow = {
   [k: string]: string;
 };
 
-const TTL_MS = 5 * 60 * 1000;
-let cache: { rows: BaseSheetRow[]; ts: number } | null = null;
-
 async function fetchBaseSheet(): Promise<BaseSheetRow[]> {
   const url = process.env.METABASE_BASESHEET_URL;
   if (!url) throw new Error('METABASE_BASESHEET_URL is not set');
@@ -32,12 +30,16 @@ async function fetchBaseSheet(): Promise<BaseSheetRow[]> {
   return parsed.data.filter((r) => r.entity_id);
 }
 
-export async function getBaseSheet(): Promise<BaseSheetRow[]> {
-  if (cache && Date.now() - cache.ts < TTL_MS) return cache.rows;
-  const rows = await fetchBaseSheet();
-  cache = { rows, ts: Date.now() };
-  return rows;
-}
+/**
+ * BaseSheet rows cached for 5 minutes via Next.js unstable_cache.
+ * Survives across Vercel serverless invocations — first request warms it,
+ * everyone after gets it instantly.
+ */
+export const getBaseSheet = unstable_cache(
+  async () => fetchBaseSheet(),
+  ['zoca-basesheet'],
+  { revalidate: 300, tags: ['basesheet'] },
+);
 
 /**
  * Find a BaseSheet row that matches a Stripe customer. We try in order:

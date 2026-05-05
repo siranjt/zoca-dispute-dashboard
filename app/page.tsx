@@ -1,11 +1,20 @@
+import { revalidateTag } from 'next/cache';
 import { listDisputes, formatAmount, isNeedsResponse, type DisputeListItem } from '@/lib/stripe';
 import { matchCustomer, type BaseSheetRow } from '@/lib/basesheet';
 import DisputesTable from '@/components/DisputesTable';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+// ISR: page cache for 60s. First request renders, subsequent requests hit
+// the cached HTML instantly. Stale data is served during background regen
+// (so users never wait on Stripe + BaseSheet again).
+export const revalidate = 60;
 export const runtime = 'nodejs';
 export const maxDuration = 60;
+
+async function refreshAction() {
+  'use server';
+  revalidateTag('disputes');
+  revalidateTag('basesheet');
+}
 
 type EnrichedDispute = DisputeListItem & { baseSheet: BaseSheetRow | null };
 
@@ -100,12 +109,14 @@ export default async function Page() {
           <span className="text-ink-dim mx-3">·</span>
           <span className="text-ink-dim">{refreshDate}</span>
         </div>
-        <a
-          href="/"
-          className="px-4 py-1.5 rounded-full border border-accent-pink-strong/60 text-accent-pink hover:bg-accent-pink-bg transition text-sm font-medium"
-        >
-          ↻ Refresh live data
-        </a>
+        <form action={refreshAction}>
+          <button
+            type="submit"
+            className="px-4 py-1.5 rounded-full border border-accent-pink-strong/60 text-accent-pink hover:bg-accent-pink-bg transition text-sm font-medium"
+          >
+            ↻ Refresh live data
+          </button>
+        </form>
       </section>
 
       {/* STAT CARDS */}

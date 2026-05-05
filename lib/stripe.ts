@@ -1,5 +1,6 @@
 import 'server-only';
 import Stripe from 'stripe';
+import { unstable_cache } from 'next/cache';
 
 if (!process.env.STRIPE_SECRET_KEY) {
   // We don't throw at module load so `next build` can statically analyze
@@ -41,18 +42,33 @@ const NEEDS_RESPONSE: Stripe.Dispute.Status[] = [
   'needs_response',
 ];
 
-/**
- * Fetch up to `limit` recent disputes (default 100). Stripe paginates with
- * starting_after; for a dashboard MVP a single page is enough.
- */
-export async function listDisputes(opts: { limit?: number } = {}): Promise<DisputeListItem[]> {
-  const limit = Math.min(opts.limit ?? 100, 100);
+async function fetchDisputesUncached(limit: number): Promise<DisputeListItem[]> {
   const res = await stripe.disputes.list({
     limit,
     expand: ['data.charge', 'data.charge.customer', 'data.payment_intent'],
   });
-
   return res.data.map(toListItem);
+}
+
+/**
+ * Cached version, default-100 case only. Cache window: 60s.
+ * After 60s the next request triggers a background revalidation while the
+ * stale data is still served — so users never wait on Stripe.
+ */
+const _listDisputes100Cached = unstable_cache(
+  async () => fetchDisputesUncached(100),
+  ['stripe-disputes-list-100'],
+  { revalidate: 60, tags: ['disputes'] },
+);
+
+/**
+ * Fetch up to `limit` recent disputes (default 100). The default 100 case is
+ * cached for 60s; non-default limits bypass cache.
+ */
+export async function listDisputes(opts: { limit?: number } = {}): Promise<DisputeListItem[]> {
+  const limit = Math.min(opts.limit ?? 100, 100);
+  if (limit === 100) return _listDisputes100Cached();
+  return fetchDisputesUncached(limit);
 }
 
 export async function getDispute(id: string): Promise<{
