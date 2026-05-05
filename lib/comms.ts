@@ -1,5 +1,6 @@
 import 'server-only';
 import Papa from 'papaparse';
+import { Readable } from 'node:stream';
 
 export type CommsChannel = 'app_chat' | 'email' | 'phone' | 'video' | 'sms';
 
@@ -14,15 +15,6 @@ export type CommsEvent = {
   extras?: Record<string, string>;
 };
 
-const TTL_MS = 5 * 60 * 1000;
-const cache: Record<CommsChannel, { rows: any[]; ts: number } | null> = {
-  app_chat: null,
-  email: null,
-  phone: null,
-  video: null,
-  sms: null,
-};
-
 const URLS: Record<CommsChannel, string | undefined> = {
   app_chat: process.env.METABASE_APPCHAT_URL,
   email: process.env.METABASE_EMAIL_URL,
@@ -30,19 +22,6 @@ const URLS: Record<CommsChannel, string | undefined> = {
   video: process.env.METABASE_VIDEO_URL,
   sms: process.env.METABASE_SMS_URL,
 };
-
-async function fetchChannel(channel: CommsChannel): Promise<any[]> {
-  const c = cache[channel];
-  if (c && Date.now() - c.ts < TTL_MS) return c.rows;
-  const url = URLS[channel];
-  if (!url) throw new Error(`Missing env var for ${channel}`);
-  const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`${channel} fetch failed: ${res.status}`);
-  const csv = await res.text();
-  const parsed = Papa.parse<any>(csv, { header: true, skipEmptyLines: true });
-  cache[channel] = { rows: parsed.data, ts: Date.now() };
-  return parsed.data;
-}
 
 function parseDate(v: string): number {
   if (!v) return 0;
@@ -62,54 +41,97 @@ function normalizeSide(channel: CommsChannel, raw: any): 'client' | 'team' | 'un
   }
 
   if (memberType === 'user' || sender === 'user') return 'client';
-  if (memberType === 'team member' || memberType === 'team_member' || sender === 'team member' || sender === 'team_member') return 'team';
+  if (
+    memberType === 'team member' ||
+    memberType === 'team_member' ||
+    sender === 'team member' ||
+    sender === 'team_member'
+  )
+    return 'team';
 
   return 'unknown';
 }
 
 /**
+ * Stream-parse a CSV from `url`, yielding only rows matching `entityId`.
+ * Memory stays bounded — non-matching rows are dropped during parse.
+ */
+async function streamFilterByEntity(
+  url: string,
+  channel: CommsChannel,
+  entityId: string,
+  cutoff: number,
+): Promise<CommsEvent[]> {
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok || !res.body) {
+    throw new Error(`${channel} fetch failed: ${res.status}`);
+  }
+
+  const events: CommsEvent[] = [];
+  const nodeStream = Readable.fromWeb(res.body as any);
+
+  await new Promise<void>((resolve, reject) => {
+    Papa.parse<any>(nodeStream as any, {
+      header: true,
+      skipEmptyLines: true,
+      step: (results) => {
+        const row = results.data;
+        const eid = row['Entity ID'] || row.entity_id;
+        if (eid !== entityId) return;
+
+        const createdAt = parseDate(row['Created At'] || row.created_at);
+        if (!createdAt || createdAt < cutoff) return;
+
+        const body = (row['Message Body'] || row.message_body || '').toString();
+        const extras: Record<string, string> = {};
+        if (channel === 'phone') {
+          if (row['Call Duration']) extras.duration = row['Call Duration'].toString();
+          if (row['Call Sid']) extras.callSid = row['Call Sid'].toString();
+        }
+        if (channel === 'video') {
+          if (row.Duration) extras.duration = row.Duration.toString();
+          if (row['Organizer Email']) extras.organizer = row['Organizer Email'].toString();
+          if (row.Source) extras.source = row.Source.toString();
+        }
+
+        events.push({
+          channel,
+          createdAt,
+          sender: (row.Sender || row.sender || '').toString(),
+          side: normalizeSide(channel, row),
+          body,
+          extras: Object.keys(extras).length ? extras : undefined,
+        });
+      },
+      complete: () => resolve(),
+      error: (err) => reject(err),
+    });
+  });
+
+  return events;
+}
+
+/**
  * Get all comms for a given entity_id within `days` days back from now.
- * Combines all 5 channels into a unified, time-sorted timeline.
+ * Streams all 5 channels in parallel; only matching rows are kept in memory.
  */
 export async function getCommsForEntity(entityId: string, days = 90): Promise<CommsEvent[]> {
   if (!entityId) return [];
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
 
   const channels: CommsChannel[] = ['app_chat', 'email', 'phone', 'video', 'sms'];
-  const results = await Promise.allSettled(channels.map((c) => fetchChannel(c)));
+  const results = await Promise.allSettled(
+    channels.map((c) => {
+      const url = URLS[c];
+      if (!url) return Promise.resolve([] as CommsEvent[]);
+      return streamFilterByEntity(url, c, entityId, cutoff);
+    }),
+  );
 
   const events: CommsEvent[] = [];
-  results.forEach((r, idx) => {
-    if (r.status !== 'fulfilled') return;
-    const channel = channels[idx];
-    for (const row of r.value) {
-      const eid = row['Entity ID'] || row.entity_id;
-      if (eid !== entityId) continue;
-      const createdAt = parseDate(row['Created At'] || row.created_at);
-      if (!createdAt || createdAt < cutoff) continue;
-
-      const body = (row['Message Body'] || row.message_body || '').toString();
-      const extras: Record<string, string> = {};
-      if (channel === 'phone') {
-        if (row['Call Duration']) extras.duration = row['Call Duration'].toString();
-        if (row['Call Sid']) extras.callSid = row['Call Sid'].toString();
-      }
-      if (channel === 'video') {
-        if (row.Duration) extras.duration = row.Duration.toString();
-        if (row['Organizer Email']) extras.organizer = row['Organizer Email'].toString();
-        if (row.Source) extras.source = row.Source.toString();
-      }
-
-      events.push({
-        channel,
-        createdAt,
-        sender: (row.Sender || row.sender || '').toString(),
-        side: normalizeSide(channel, row),
-        body,
-        extras: Object.keys(extras).length ? extras : undefined,
-      });
-    }
-  });
+  for (const r of results) {
+    if (r.status === 'fulfilled') events.push(...r.value);
+  }
 
   events.sort((a, b) => b.createdAt - a.createdAt);
   return events;

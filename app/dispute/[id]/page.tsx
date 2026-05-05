@@ -9,6 +9,8 @@ import CounterDraft from '@/components/CounterDraft';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+export const runtime = 'nodejs';
+export const maxDuration = 60;
 
 const RECOMMENDATION_STYLES: Record<string, string> = {
   FIGHT: 'bg-emerald-100 text-emerald-800 border-emerald-200',
