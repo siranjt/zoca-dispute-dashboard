@@ -108,22 +108,27 @@ export default async function DisputePage({ params }: { params: { id: string } }
           <span>·</span>
           <span>opened {new Date(dispute.created * 1000).toISOString().slice(0, 10)}</span>
         </div>
-        <h1 className="text-pink-shimmer text-4xl sm:text-5xl font-extrabold tracking-tight m-0">
+        {/* On-screen: customer name as the H1 (analyzer behaviour preserved) */}
+        <h1 className="text-pink-shimmer text-4xl sm:text-5xl font-extrabold tracking-tight m-0 print:hidden">
           {customerName}
         </h1>
+
+        {/* PDF-only: business name promoted to H1, highlighted in pink + bold */}
+        <h1 className="hidden print:block text-pink-shimmer text-4xl font-extrabold tracking-tight m-0">
+          {baseSheet?.bizname?.trim() || customerName}
+        </h1>
+
         <p className="text-base text-ink-muted">
           {formatAmount(dispute.amount, dispute.currency)} · reason:{' '}
           <span className="text-ink">{dispute.reason}</span>
         </p>
 
-        {/* PRINT-ONLY: Business + AM info for the PDF report */}
+        {/* PRINT-ONLY supporting line: cardholder + AM */}
         <div className="hidden print:block pt-3 mt-2 border-t border-gray-300">
           <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-sm">
             <div>
-              <span className="text-gray-500">Business name: </span>
-              <strong className="text-black">
-                {baseSheet?.bizname?.trim() || '—'}
-              </strong>
+              <span className="text-gray-500">Cardholder: </span>
+              <strong className="text-black">{customerName}</strong>
             </div>
             <div>
               <span className="text-gray-500">Account manager: </span>
