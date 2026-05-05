@@ -37,8 +37,17 @@ export default async function DisputePage({ params }: { params: { id: string } }
   let commsEvents: Awaited<ReturnType<typeof getCommsForEntity>> = [];
   let enrichmentError: string | null = null;
   try {
+    // The customer object is expanded by getDispute, so try the expanded id
+    // FIRST. Only fall back to the string form if the customer object isn't
+    // available. Without this, the customer-ID match path never runs on the
+    // detail page (which is how Beauty By Lucky was missing — its BaseSheet
+    // row is keyed by the Stripe customer id `cus_R7dyvw3kzHMGX4`).
+    const stripeCustomerId =
+      customer?.id ??
+      (charge?.customer && typeof charge.customer === 'string' ? charge.customer : null);
+
     baseSheet = await matchCustomer({
-      customerId: charge?.customer && typeof charge.customer === 'string' ? charge.customer : null,
+      customerId: stripeCustomerId,
       email: customer?.email ?? charge?.billing_details?.email ?? null,
       phone: customer?.phone ?? charge?.billing_details?.phone ?? null,
       name: customer?.name ?? charge?.billing_details?.name ?? null,
@@ -83,8 +92,15 @@ export default async function DisputePage({ params }: { params: { id: string } }
     ? Math.max(0, Math.ceil((evidenceDueDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
     : null;
 
+  // Prefer real names, then BaseSheet, then any email, then a labelled
+  // fallback that uses the Stripe dispute id. Never the literal "Dispute".
   const customerName =
-    customer?.name || charge?.billing_details?.name || baseSheet?.bizname || 'Dispute';
+    customer?.name?.trim() ||
+    charge?.billing_details?.name?.trim() ||
+    baseSheet?.bizname?.trim() ||
+    customer?.email?.trim() ||
+    charge?.billing_details?.email?.trim() ||
+    `Stripe dispute ${dispute.id.slice(0, 14)}…`;
 
   // Comms that signal trouble in the lead-up to this dispute (PDF-only section).
   const dissatisfactionEvents = extractDissatisfactionEvidence({
