@@ -23,7 +23,10 @@ export type DisputeListItem = {
   currency: string;
   status: Stripe.Dispute.Status;
   reason: string;
+  /** Unix seconds when the dispute was opened by the cardholder. */
   created: number;
+  /** Unix seconds when the underlying charge was created (i.e. when money was charged). */
+  chargeCreated: number | null;
   evidenceDueBy: number | null;
   hasEvidence: boolean;
   customerId: string | null;
@@ -96,6 +99,7 @@ function toListItem(d: Stripe.Dispute): DisputeListItem {
     status: d.status,
     reason: d.reason,
     created: d.created,
+    chargeCreated: charge?.created ?? null,
     evidenceDueBy: d.evidence_details?.due_by ?? null,
     hasEvidence: d.evidence_details?.has_evidence ?? false,
     customerId: customer?.id ?? (charge && typeof charge.customer === 'string' ? charge.customer : null),

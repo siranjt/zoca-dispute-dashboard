@@ -218,20 +218,22 @@ export default async function Page({
             <thead>
               <tr className="text-[10px] uppercase tracking-wider text-ink-dim">
                 <th className="text-left px-5 py-3 font-medium">Customer</th>
-                <th className="text-left px-3 py-3 font-medium">Business + entity</th>
-                <th className="text-left px-3 py-3 font-medium">AM</th>
+                <th className="text-left px-3 py-3 font-medium">Entity ID</th>
+                <th className="text-left px-3 py-3 font-medium">Business name</th>
+                <th className="text-left px-3 py-3 font-medium">AM Name</th>
                 <th className="text-left px-3 py-3 font-medium">Amount</th>
                 <th className="text-left px-3 py-3 font-medium">Reason</th>
                 <th className="text-left px-3 py-3 font-medium">Status</th>
-                <th className="text-left px-3 py-3 font-medium">Opened</th>
-                <th className="text-left px-3 py-3 font-medium">Due</th>
+                <th className="text-left px-3 py-3 font-medium">Charge date</th>
+                <th className="text-left px-3 py-3 font-medium">Dispute opened</th>
+                <th className="text-left px-3 py-3 font-medium">Evidence due</th>
                 <th className="text-right px-5 py-3 font-medium"></th>
               </tr>
             </thead>
             <tbody>
               {visible.length === 0 && !error && (
                 <tr>
-                  <td colSpan={9} className="px-5 py-16 text-center text-ink-dim">
+                  <td colSpan={11} className="px-5 py-16 text-center text-ink-dim">
                     No disputes match this filter.
                   </td>
                 </tr>
@@ -241,6 +243,7 @@ export default async function Page({
                   key={d.id}
                   className="border-t border-line-soft hover:bg-elevated/40 transition group"
                 >
+                  {/* Customer */}
                   <td className="px-5 py-4">
                     <Link href={`/dispute/${d.id}`} className="block">
                       <div className="font-medium text-ink group-hover:text-accent-pink transition">
@@ -249,41 +252,65 @@ export default async function Page({
                       <div className="text-xs text-ink-dim mt-0.5">{d.customerEmail}</div>
                     </Link>
                   </td>
-                  <td className="px-3 py-4">
-                    {d.baseSheet ? (
-                      <>
-                        <div className="text-ink">{d.baseSheet.bizname}</div>
-                        <div
-                          className="text-[10px] text-ink-dim font-mono mt-0.5"
-                          title={d.baseSheet.entity_id}
-                        >
-                          {d.baseSheet.entity_id?.slice(0, 18)}…
-                        </div>
-                      </>
+
+                  {/* Entity ID */}
+                  <td className="px-3 py-4 font-mono text-[11px] text-ink-muted">
+                    {d.baseSheet?.entity_id ? (
+                      <span title={d.baseSheet.entity_id}>
+                        {d.baseSheet.entity_id.slice(0, 8)}…
+                      </span>
                     ) : (
-                      <span className="text-xs text-ink-dim italic">no BaseSheet match</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-4 text-ink-muted">
-                    {d.baseSheet?.am_name?.trim() || (
                       <span className="text-ink-dim">—</span>
                     )}
                   </td>
+
+                  {/* Business name */}
+                  <td className="px-3 py-4">
+                    {d.baseSheet?.bizname ? (
+                      <span className="text-ink">{d.baseSheet.bizname}</span>
+                    ) : (
+                      <span className="text-xs text-ink-dim italic">no match</span>
+                    )}
+                  </td>
+
+                  {/* AM Name */}
+                  <td className="px-3 py-4 text-ink-muted">
+                    {d.baseSheet?.am_name?.trim() || <span className="text-ink-dim">—</span>}
+                  </td>
+
+                  {/* Amount */}
                   <td className="px-3 py-4 font-medium text-ink tabular-nums">
                     {formatAmount(d.amount, d.currency)}
                   </td>
+
+                  {/* Reason */}
                   <td className="px-3 py-4 text-ink-muted text-xs">{d.reason}</td>
+
+                  {/* Status */}
                   <td className="px-3 py-4">
                     <StatusPill status={d.status} />
                   </td>
+
+                  {/* Charge date */}
+                  <td className="px-3 py-4 text-ink-muted tabular-nums text-xs">
+                    {d.chargeCreated
+                      ? new Date(d.chargeCreated * 1000).toISOString().slice(0, 10)
+                      : '—'}
+                  </td>
+
+                  {/* Dispute opened */}
                   <td className="px-3 py-4 text-ink-muted tabular-nums text-xs">
                     {new Date(d.created * 1000).toISOString().slice(0, 10)}
                   </td>
+
+                  {/* Evidence due */}
                   <td className="px-3 py-4 text-ink-muted tabular-nums text-xs">
                     {d.evidenceDueBy
                       ? new Date(d.evidenceDueBy * 1000).toISOString().slice(0, 10)
                       : '—'}
                   </td>
+
+                  {/* Action */}
                   <td className="px-5 py-4 text-right whitespace-nowrap">
                     <Link
                       href={`/dispute/${d.id}`}
