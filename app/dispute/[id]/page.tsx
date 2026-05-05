@@ -121,7 +121,11 @@ export default async function DisputePage({ params }: { params: { id: string } }
           {customerName}
         </h1>
 
-        {/* PDF-only: business name promoted to H1, highlighted in pink + bold */}
+        {/* PDF-only H1: business name (highlighted). Falls back to cardholder
+            ONLY when BaseSheet has no match; the info block below makes the
+            match status explicit either way. Identical JSX runs for every
+            dispute — variations in output reflect variations in source data,
+            not in the code path. */}
         <h1 className="hidden print:block text-pink-shimmer text-4xl font-extrabold tracking-tight m-0">
           {baseSheet?.bizname?.trim() || customerName}
         </h1>
@@ -131,7 +135,7 @@ export default async function DisputePage({ params }: { params: { id: string } }
           <span className="text-ink">{dispute.reason}</span>
         </p>
 
-        {/* PRINT-ONLY supporting line: cardholder + AM */}
+        {/* PRINT-ONLY supporting line: cardholder + AM. Always renders for every dispute. */}
         <div className="hidden print:block pt-3 mt-2 border-t border-gray-300">
           <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-sm">
             <div>
@@ -141,7 +145,19 @@ export default async function DisputePage({ params }: { params: { id: string } }
             <div>
               <span className="text-gray-500">Account manager: </span>
               <strong className="text-black">
-                {baseSheet?.am_name?.trim() || '—'}
+                {baseSheet?.am_name?.trim() || 'Not assigned'}
+              </strong>
+            </div>
+            <div>
+              <span className="text-gray-500">Business: </span>
+              <strong className="text-black">
+                {baseSheet?.bizname?.trim() || 'Not in BaseSheet'}
+              </strong>
+            </div>
+            <div>
+              <span className="text-gray-500">Entity ID: </span>
+              <strong className="text-black font-mono text-xs">
+                {baseSheet?.entity_id?.trim() || '—'}
               </strong>
             </div>
           </div>
@@ -333,17 +349,24 @@ export default async function DisputePage({ params }: { params: { id: string } }
               )}
             </div>
 
-            {/* PDF-only: filtered evidence — 10-day full dissatisfaction + 30-day complaint/refund */}
+            {/* PDF-only: filtered evidence — 10-day full dissatisfaction + 30-day complaint/refund.
+                Always renders for every dispute, even when zero events match. */}
             <div className="hidden print:block mt-4 pt-4 border-t border-gray-300">
               <div className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-2">
-                Lead-up to dispute
+                Lead-up to dispute · filtered evidence
               </div>
               <p className="text-xs text-gray-600 mb-3">
-                {dissatisfactionEvents.length > 0
-                  ? `${dissatisfactionEvents.length} comms flagged: dissatisfaction signals in the 10 days before the dispute, plus complaint or refund language in the 30-day window.`
-                  : 'No dissatisfaction or complaint signals detected in the 10-day or 30-day windows before the dispute.'}
+                Pulled from two windows: any dissatisfaction signal in the 10 days before the
+                dispute, plus complaint or refund language anywhere in the 30 days before. Combined,
+                deduped, sorted oldest-first.
               </p>
-              {dissatisfactionEvents.length > 0 && (
+              {dissatisfactionEvents.length === 0 ? (
+                <div className="text-xs p-3 rounded border border-gray-300 bg-gray-50 text-gray-700">
+                  <strong>No dissatisfaction or complaint signals detected.</strong> The chargeback
+                  appears to come without a paper trail of warnings — strengthens the case for a
+                  fight, since there's no evidence the customer raised concerns first.
+                </div>
+              ) : (
                 <ol className="space-y-2">
                   {dissatisfactionEvents.map((e, i) => (
                     <li key={i} className="text-xs p-2 rounded border border-gray-300">
@@ -376,6 +399,12 @@ export default async function DisputePage({ params }: { params: { id: string } }
                   ))}
                 </ol>
               )}
+
+              {/* Build-version stamp so it's obvious which deploy generated this PDF */}
+              <div className="text-[9px] text-gray-400 mt-4 pt-3 border-t border-gray-200 font-mono">
+                Report generated {new Date().toISOString()} · build v3 · 10d full + 30d narrow
+                comms filter active
+              </div>
             </div>
           </Card>
 
