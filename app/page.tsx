@@ -1,9 +1,10 @@
 import { Suspense } from 'react';
-import { revalidateTag } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { listDisputes, type DisputeListItem } from '@/lib/stripe';
 import { matchCustomer, type BaseSheetRow } from '@/lib/basesheet';
 import Dashboard from '@/components/Dashboard';
 import AmbientSparkles from '@/components/AmbientSparkles';
+import RefreshButton from '@/components/RefreshButton';
 
 export const revalidate = 60;
 export const runtime = 'nodejs';
@@ -13,6 +14,7 @@ async function refreshAction() {
   'use server';
   revalidateTag('disputes');
   revalidateTag('basesheet');
+  revalidatePath('/');
 }
 
 type EnrichedDispute = DisputeListItem & { baseSheet: BaseSheetRow | null };
@@ -52,17 +54,17 @@ export default async function Page() {
   const refreshDate = new Date().toISOString().slice(0, 10);
 
   return (
-    <div className="space-y-12 relative">
+    <div className="space-y-8 sm:space-y-10 relative">
       <AmbientSparkles />
 
       {/* HERO */}
-      <section className="pt-12 text-center relative">
+      <section className="pt-8 sm:pt-12 text-center relative">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-line bg-surface/50">
           <span className="live-dot"></span>
           <span className="text-sm text-ink-muted">Live Stripe disputes · auto-scored by Claude</span>
         </div>
 
-        <div className="relative inline-block mt-8">
+        <div className="relative inline-block mt-6 sm:mt-8">
           <span
             aria-hidden
             className="header-spark text-accent-pink text-sm"
@@ -84,17 +86,17 @@ export default async function Page() {
           >
             ✦
           </span>
-          <h1 className="text-pink-shimmer text-6xl sm:text-7xl lg:text-8xl font-extrabold tracking-tight leading-[0.95] m-0">
+          <h1 className="text-pink-shimmer text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-extrabold tracking-tight leading-[0.95] m-0">
             Dispute Analyser
           </h1>
         </div>
 
-        <p className="mt-6 max-w-2xl mx-auto text-base sm:text-lg text-ink-muted leading-relaxed">
+        <p className="mt-4 sm:mt-6 max-w-2xl mx-auto text-sm sm:text-base lg:text-lg text-ink-muted leading-relaxed">
           Which Stripe chargebacks Zoca should fight, refund, or escalate to an AM — surfaced from
           live customer comms across App Chat, Email, Phone, SMS, and Video.
         </p>
 
-        <div className="mt-7 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-ink-muted">
+        <div className="mt-5 sm:mt-7 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-ink-muted">
           <Feature>Last 100 disputes</Feature>
           <Feature>Live Stripe + Metabase</Feature>
           <Feature>Claude-scored signals</Feature>
@@ -108,28 +110,21 @@ export default async function Page() {
       )}
 
       {/* STATUS BAR */}
-      <section className="rounded-2xl border border-line bg-surface/50 backdrop-blur-sm px-5 py-4 flex items-center justify-between flex-wrap gap-3">
-        <div className="text-sm text-ink-muted">
+      <section className="rounded-2xl border border-line bg-surface/50 backdrop-blur-sm px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between flex-wrap gap-3">
+        <div className="text-xs sm:text-sm text-ink-muted">
           <span className="text-ink-dim mr-2">SHOWING</span>
           <span className="text-ink font-semibold">{enriched.length}</span>
           <span className="text-ink-dim mx-1">/ {enriched.length}</span>
-          <span className="text-ink-dim mx-3">·</span>
+          <span className="text-ink-dim mx-2 sm:mx-3">·</span>
           <span className="text-ink-dim mr-2">LAST REFRESH</span>
-          <span className="text-ink font-semibold">{refreshTime}</span>
-          <span className="text-ink-dim mx-3">·</span>
-          <span className="text-ink-dim">{refreshDate}</span>
+          <span className="text-ink font-semibold tabular-nums">{refreshTime}</span>
+          <span className="text-ink-dim mx-2 sm:mx-3 hidden sm:inline">·</span>
+          <span className="text-ink-dim hidden sm:inline tabular-nums">{refreshDate}</span>
         </div>
-        <form action={refreshAction}>
-          <button
-            type="submit"
-            className="px-4 py-1.5 rounded-full border border-accent-pink-strong/60 text-accent-pink hover:bg-accent-pink-bg transition text-sm font-medium"
-          >
-            ↻ Refresh live data
-          </button>
-        </form>
+        <RefreshButton action={refreshAction} />
       </section>
 
-      {/* INTERACTIVE DASHBOARD (client component) */}
+      {/* INTERACTIVE DASHBOARD */}
       <Suspense
         fallback={
           <div className="rounded-2xl border border-line bg-surface/40 backdrop-blur-sm p-12 text-center text-ink-muted">

@@ -1,6 +1,7 @@
 import './globals.css';
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import ZocaLogo from '@/components/ZocaLogo';
 
 export const metadata: Metadata = {
   title: 'Zoca · Dispute Analyser',
@@ -18,26 +19,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <div className="min-h-screen flex flex-col">
-          <header className="px-8 py-6">
-            <div className="max-w-7xl mx-auto flex items-center justify-between">
-              <Link href="/" className="flex items-center gap-3 group">
-                <span className="text-2xl font-extrabold tracking-tight text-ink">
-                  zoca
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent-pink-strong ml-0.5 align-top mt-3"></span>
-                </span>
-                <span className="text-ink-dim">·</span>
-                <span className="text-sm text-ink-muted group-hover:text-ink transition">
+          <header className="px-4 sm:px-8 py-5 sm:py-6">
+            <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+              <Link href="/" className="flex items-center gap-3 group flex-shrink-0">
+                <ZocaLogo width={68} height={17} />
+                <span className="text-ink-dim hidden sm:inline">·</span>
+                <span className="text-sm text-ink-muted group-hover:text-ink transition hidden sm:inline">
                   Dispute Analyser
                 </span>
               </Link>
-              <nav className="flex items-center gap-5 text-sm text-ink-muted">
-                <span className="hidden sm:inline">Live data · Stripe + Metabase + Claude</span>
-                <span className="text-ink-dim">·</span>
+              <nav className="flex items-center gap-3 sm:gap-5 text-xs sm:text-sm text-ink-muted">
+                <span className="hidden lg:inline">Live data · Stripe + Metabase + Claude</span>
+                <span className="text-ink-dim hidden lg:inline">·</span>
                 <a
                   href="https://dashboard.stripe.com/disputes"
                   target="_blank"
                   rel="noreferrer"
-                  className="hover:text-ink transition"
+                  className="hover:text-ink transition whitespace-nowrap"
                 >
                   Open Stripe ↗
                 </a>
@@ -45,10 +43,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
           </header>
           <main className="flex-1">
-            <div className="max-w-7xl mx-auto px-8 pb-16">{children}</div>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">{children}</div>
           </main>
           <footer className="border-t border-line-soft py-6 mt-8">
-            <div className="max-w-7xl mx-auto px-8 text-xs text-ink-dim">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-xs text-ink-dim">
               Internal tool. Counter-response drafts must be reviewed by an account manager before
               submission to Stripe.
             </div>
