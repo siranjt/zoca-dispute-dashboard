@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { getDispute, formatAmount } from '@/lib/stripe';
 import { matchCustomer } from '@/lib/basesheet';
 import { getCommsForEntity, commsCounts } from '@/lib/comms';
-import { scoreDispute } from '@/lib/signals';
+import { scoreDispute, extractDissatisfactionEvidence } from '@/lib/signals';
 import { buildDraft } from '@/lib/draft';
 import CounterDraft from '@/components/CounterDraft';
 import RecommendationHero from '@/components/RecommendationHero';
@@ -85,6 +85,14 @@ export default async function DisputePage({ params }: { params: { id: string } }
 
   const customerName =
     customer?.name || charge?.billing_details?.name || baseSheet?.bizname || 'Dispute';
+
+  // Comms that signal trouble in the lead-up to this dispute (PDF-only section).
+  const dissatisfactionEvents = extractDissatisfactionEvidence({
+    events: commsEvents,
+    disputeCreatedAt: dispute.created * 1000,
+    recentDays: 10,
+    extendedDays: 30,
+  });
 
   return (
     <div className="space-y-8 pt-8 relative">
@@ -273,7 +281,8 @@ export default async function DisputePage({ params }: { params: { id: string } }
                 video: counts.byChannel.video || 0,
               }}
             />
-            <div className="mt-4 pt-4 border-t border-line-soft">
+            {/* On-screen: full 90-day timeline */}
+            <div className="mt-4 pt-4 border-t border-line-soft print:hidden">
               {commsEvents.length === 0 ? (
                 <p className="text-sm text-ink-dim">No comms found in the last 90 days.</p>
               ) : (
@@ -313,6 +322,51 @@ export default async function DisputePage({ params }: { params: { id: string } }
                       </div>
                       {e.extras && (
                         <div className="mt-1.5 text-ink-dim">
+                          {Object.entries(e.extras)
+                            .map(([k, v]) => `${k}: ${v}`)
+                            .join(' · ')}
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+
+            {/* PDF-only: filtered evidence — 10-day full dissatisfaction + 30-day complaint/refund */}
+            <div className="hidden print:block mt-4 pt-4 border-t border-gray-300">
+              <div className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-2">
+                Lead-up to dispute
+              </div>
+              <p className="text-xs text-gray-600 mb-3">
+                {dissatisfactionEvents.length > 0
+                  ? `${dissatisfactionEvents.length} comms flagged: dissatisfaction signals in the 10 days before the dispute, plus complaint or refund language in the 30-day window.`
+                  : 'No dissatisfaction or complaint signals detected in the 10-day or 30-day windows before the dispute.'}
+              </p>
+              {dissatisfactionEvents.length > 0 && (
+                <ol className="space-y-2">
+                  {dissatisfactionEvents.map((e, i) => (
+                    <li key={i} className="text-xs p-2 rounded border border-gray-300">
+                      <div className="flex items-center justify-between text-gray-500">
+                        <span>
+                          <strong className="text-black">
+                            {e.side === 'team'
+                              ? 'Zoca'
+                              : e.side === 'client'
+                                ? 'Customer'
+                                : '—'}
+                          </strong>
+                          <span className="ml-1.5">· {e.channel}</span>
+                        </span>
+                        <span className="tabular-nums">
+                          {new Date(e.createdAt).toISOString().slice(0, 10)}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-black whitespace-pre-wrap break-words">
+                        {e.body}
+                      </div>
+                      {e.extras && (
+                        <div className="mt-1 text-gray-500">
                           {Object.entries(e.extras)
                             .map(([k, v]) => `${k}: ${v}`)
                             .join(' · ')}

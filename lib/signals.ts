@@ -369,3 +369,78 @@ function truncate(s: string, n: number) {
   s = (s || '').replace(/\s+/g, ' ').trim();
   return s.length <= n ? s : s.slice(0, n - 1) + '…';
 }
+
+// ─────────────────────────────────────────────────────────────
+// DISSATISFACTION EXTRACTION — used by the PDF report to surface
+// only the comms in the lead-up window that signal trouble.
+// ─────────────────────────────────────────────────────────────
+
+// Broad: any dissatisfaction signal — used for the close-to-dispute window
+const DISSATISFACTION_PATTERNS: RegExp[] = [
+  /\b(refund(ed|ing)?|credit\s?(note|back)?|money back|charge\s?back)\b/i,
+  /\b(cancel(ling|led|lation)?|close (my )?account|end (the )?subscription|stop (the )?service|terminate)\b/i,
+  /\b(disput(e|ing)|complain(t|ing|s)?|grievanc)\b/i,
+  /\b(frustrat|disappoint|unhappy|unsatisfied|dissatisfied|not (happy|satisfied|working))\b/i,
+  /\b(terrible|awful|horrible|useless|waste of (money|time)|scam|fraud)\b/i,
+  /\b(never (got|received|saw|delivered)|nothing (happened|works|changed)|no (results|leads|bookings|response))\b/i,
+  /\b(threaten|legal action|attorney|lawyer|sue)\b/i,
+  /\b(expected (more|better|different)|not what (i|we) (expected|wanted|paid for))\b/i,
+];
+
+// Narrow: only explicit complaint or refund language — used for the wider window
+const NARROW_COMPLAINT_PATTERNS: RegExp[] = [
+  /\b(refund(ed|ing)?|credit\s?(note|back)?|money back|charge\s?back)\b/i,
+  /\b(complain(t|ing|s)?|grievanc)\b/i,
+];
+
+/**
+ * Returns comms events that signal trouble in the lead-up to a dispute.
+ *
+ * Two windows combined (deduplicated):
+ *   1. `recentDays` (default 10) before the dispute — ALL dissatisfaction
+ *      patterns fire. Cancel intent, complaints, refund mentions, frustration,
+ *      "didn't work" language, etc.
+ *   2. `extendedDays` (default 30) before the dispute — only narrow
+ *      complaint/refund keywords fire. Stops the early window from drowning
+ *      in routine "thanks" / generic chat that happens to contain "issue".
+ *
+ * Sorted chronologically (oldest first) so the PDF narrative reads naturally.
+ */
+export function extractDissatisfactionEvidence(opts: {
+  events: CommsEvent[];
+  disputeCreatedAt: number; // unix ms
+  recentDays?: number;
+  extendedDays?: number;
+}): CommsEvent[] {
+  const recentDays = opts.recentDays ?? 10;
+  const extendedDays = opts.extendedDays ?? 30;
+  const recentStart = opts.disputeCreatedAt - recentDays * 24 * 60 * 60 * 1000;
+  const extendedStart = opts.disputeCreatedAt - extendedDays * 24 * 60 * 60 * 1000;
+
+  const matches = new Map<string, CommsEvent>();
+  for (const e of opts.events) {
+    if (e.createdAt > opts.disputeCreatedAt) continue;
+    const body = e.body || '';
+    if (!body) continue;
+    const key = `${e.channel}:${e.createdAt}:${body.slice(0, 64)}`;
+
+    // Window 1: recent (10d) — broad dissatisfaction
+    if (
+      e.createdAt >= recentStart &&
+      DISSATISFACTION_PATTERNS.some((rx) => rx.test(body))
+    ) {
+      matches.set(key, e);
+      continue;
+    }
+
+    // Window 2: extended (30d) — narrow complaint/refund
+    if (
+      e.createdAt >= extendedStart &&
+      NARROW_COMPLAINT_PATTERNS.some((rx) => rx.test(body))
+    ) {
+      matches.set(key, e);
+    }
+  }
+
+  return Array.from(matches.values()).sort((a, b) => a.createdAt - b.createdAt);
+}
