@@ -273,6 +273,118 @@ table {
   animation: spark-up 2s linear forwards;
 }
 
+/* ─────────────────────────────────────────────
+   Print stylesheet — used by "Download PDF" button
+   ───────────────────────────────────────────── */
+@media print {
+  @page {
+    size: A4;
+    margin: 1.5cm 1.2cm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #0e1116 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body::before {
+    display: none !important;
+  }
+
+  /* Strip ambient sparkles, hover-only chrome, action buttons */
+  .ambient-spark,
+  .header-spark,
+  .live-dot {
+    display: none !important;
+  }
+
+  /* Cards: white surface, light border, no glow */
+  [class*='bg-surface'],
+  [class*='bg-elevated'],
+  [class*='backdrop-blur'] {
+    background: #ffffff !important;
+    backdrop-filter: none !important;
+    border-color: #e3e5ea !important;
+  }
+
+  /* Text: black on white for legibility */
+  .text-ink,
+  .text-ink-muted,
+  .text-ink-dim,
+  h1,
+  h2,
+  h3,
+  p,
+  span,
+  div,
+  td,
+  th {
+    color: #0e1116 !important;
+  }
+
+  .text-pink-shimmer {
+    background: none !important;
+    -webkit-text-fill-color: #ec4899 !important;
+    color: #ec4899 !important;
+  }
+
+  /* Recommendation accent colors stay visible */
+  .text-accent-pink,
+  .text-accent-pink-strong {
+    color: #ec4899 !important;
+  }
+  .text-accent-green {
+    color: #059669 !important;
+  }
+  .text-accent-yellow {
+    color: #b45309 !important;
+  }
+  .text-accent-purple {
+    color: #6d28d9 !important;
+  }
+  .text-accent-red {
+    color: #dc2626 !important;
+  }
+
+  /* Border line tokens to grey */
+  [class*='border-line'],
+  [class*='border-accent'] {
+    border-color: #e3e5ea !important;
+  }
+
+  /* Avoid page-breaks in the middle of cards */
+  section,
+  [class*='rounded-2xl'] {
+    page-break-inside: avoid;
+    box-shadow: none !important;
+  }
+
+  /* Don't print nav, footer, ambient stuff explicitly */
+  header.print\:hidden,
+  footer.print\:hidden,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Comms timeline: cap to first 30 rows on print */
+  ol.max-h-\[28rem\] {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* Animations off */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+    transition-duration: 0s !important;
+  }
+}
+
 @keyframes shimmer-skel {
   0% {
     background-position: -200% 0;

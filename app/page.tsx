@@ -37,6 +37,7 @@ export default async function Page() {
           customerId: d.customerId ?? null,
           email: d.customerEmail ?? null,
           phone: d.customerPhone ?? null,
+          name: d.customerName ?? null,
         });
         return { ...d, baseSheet };
       }),
@@ -58,7 +59,7 @@ export default async function Page() {
       <AmbientSparkles />
 
       {/* HERO */}
-      <section className="pt-8 sm:pt-12 text-center relative">
+      <section className="pt-8 sm:pt-12 relative flex flex-col items-center text-center">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-line bg-surface/50">
           <span className="live-dot"></span>
           <span className="text-sm text-ink-muted">Live Stripe disputes · auto-scored by Claude</span>
@@ -91,7 +92,7 @@ export default async function Page() {
           </h1>
         </div>
 
-        <p className="mt-4 sm:mt-6 max-w-2xl mx-auto text-sm sm:text-base lg:text-lg text-ink-muted leading-relaxed">
+        <p className="mt-4 sm:mt-6 max-w-2xl text-sm sm:text-base lg:text-lg text-ink-muted leading-relaxed">
           Which Stripe chargebacks Zoca should fight, refund, or escalate to an AM — surfaced from
           live customer comms across App Chat, Email, Phone, SMS, and Video.
         </p>

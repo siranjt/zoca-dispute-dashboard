@@ -87,19 +87,58 @@ function lastTenDigits(phone: string): string | null {
   return digits.slice(-10);
 }
 
+function normalizeName(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .join(' ');
+}
+
+/** Levenshtein distance, capped — bails out early if >maxDist. */
+function levenshtein(a: string, b: string, maxDist: number): number {
+  if (Math.abs(a.length - b.length) > maxDist) return maxDist + 1;
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  let prev = new Array(n + 1);
+  let curr = new Array(n + 1);
+  for (let j = 0; j <= n; j++) prev[j] = j;
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i;
+    let rowMin = curr[0];
+    for (let j = 1; j <= n; j++) {
+      const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+      curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+      if (curr[j] < rowMin) rowMin = curr[j];
+    }
+    if (rowMin > maxDist) return maxDist + 1;
+    [prev, curr] = [curr, prev];
+  }
+  return prev[n];
+}
+
 /**
- * Find a BaseSheet row that matches a Stripe customer. We try in order:
- *   1. Chargebee customer handle (only if Stripe stored it; usually fails — different ID space)
- *   2. Exact email match against any of app_email / gbp_email / dct_email
- *   3. Custom-domain uniqueness match — same business email domain, generic providers excluded,
- *      and only when exactly one BaseSheet row owns that domain (so we never silently mismatch)
- *   4. Phone-number match on last 10 digits (BaseSheet.phone_number can hold multiple)
- * Returns null if no match.
+ * Find a BaseSheet row that matches a Stripe customer. Strategies in priority order:
+ *   1. Chargebee customer handle (rarely matches — Stripe + Chargebee use different ID spaces)
+ *   2. Exact email against app_email / gbp_email / dct_email
+ *   3. Custom-domain uniqueness — same business domain, generic providers excluded,
+ *      only when exactly one BaseSheet row owns the domain
+ *   4. Fuzzy email — Levenshtein ≤2 on local-part, same domain root (catches ".con" typos and
+ *      one-letter spellings); only fires when exactly one BaseSheet row matches
+ *   5. Phone-number match on last 10 digits
+ *   6. Customer name → sp_name (exact normalised), only when uniquely owned
  */
 export async function matchCustomer(opts: {
   customerId?: string | null;
   email?: string | null;
   phone?: string | null;
+  name?: string | null;
 }): Promise<BaseSheetRow | null> {
   const rows = await getBaseSheet();
 
@@ -131,10 +170,33 @@ export async function matchCustomer(opts: {
         );
         if (candidates.length === 1) return candidates[0];
       }
+
+      // 4. Fuzzy email — handle BaseSheet typos like ".con" or single-character spelling drift
+      const localPart = email.slice(0, email.lastIndexOf('@'));
+      if (localPart.length >= 5 && domain) {
+        // Strip TLD-tier difference: gmail.com ≈ gmail.con
+        const domainRoot = domain.split('.')[0];
+        const fuzzyCandidates = rows.filter((r) =>
+          [r.app_email, r.gbp_email, r.dct_email]
+            .filter(Boolean)
+            .some((e) => {
+              const eLow = e.trim().toLowerCase();
+              const eAt = eLow.lastIndexOf('@');
+              if (eAt < 0) return false;
+              const eLocal = eLow.slice(0, eAt);
+              const eDomain = eLow.slice(eAt + 1);
+              const eDomainRoot = eDomain.split('.')[0];
+              if (eDomainRoot !== domainRoot) return false;
+              const localDist = levenshtein(localPart, eLocal, 2);
+              return localDist <= 2;
+            }),
+        );
+        if (fuzzyCandidates.length === 1) return fuzzyCandidates[0];
+      }
     }
   }
 
-  // 4. Phone-number match
+  // 5. Phone-number match
   if (opts.phone) {
     const target = lastTenDigits(opts.phone);
     if (target) {
@@ -145,6 +207,19 @@ export async function matchCustomer(opts: {
           .some((p) => lastTenDigits(p) === target);
       });
       if (byPhone) return byPhone;
+    }
+  }
+
+  // 6. Customer name → sp_name match
+  if (opts.name) {
+    const target = normalizeName(opts.name);
+    if (target.length >= 4) {
+      const candidates = rows.filter((r) => {
+        const sp = (r.sp_name || '').trim();
+        if (!sp) return false;
+        return normalizeName(sp) === target;
+      });
+      if (candidates.length === 1) return candidates[0];
     }
   }
 

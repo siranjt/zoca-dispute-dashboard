@@ -163,9 +163,12 @@ export default function Dashboard({
       .slice(0, 5);
   }, [disputes]);
 
+  // Top 5 businesses at risk: only count disputes that are actively at risk
+  // (needs_response or in_review). Won/lost disputes don't represent live exposure.
   const businessRows: BusinessRow[] = useMemo(() => {
     const map = new Map<string, BusinessRow>();
     for (const d of disputes) {
+      if (!isNeedsResponse(d) && !isInReview(d)) continue;
       const id = businessKey(d);
       const existing = map.get(id) || {
         id,

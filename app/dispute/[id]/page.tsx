@@ -11,6 +11,7 @@ import ScoreGauge from '@/components/ScoreGauge';
 import SignalGrid from '@/components/SignalGrid';
 import ChannelMixBar from '@/components/ChannelMixBar';
 import AmbientSparkles from '@/components/AmbientSparkles';
+import PrintPdfButton from '@/components/PrintPdfButton';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -40,6 +41,7 @@ export default async function DisputePage({ params }: { params: { id: string } }
       customerId: charge?.customer && typeof charge.customer === 'string' ? charge.customer : null,
       email: customer?.email ?? charge?.billing_details?.email ?? null,
       phone: customer?.phone ?? charge?.billing_details?.phone ?? null,
+      name: customer?.name ?? charge?.billing_details?.name ?? null,
     });
     if (baseSheet?.entity_id) {
       commsEvents = await getCommsForEntity(baseSheet.entity_id, 90);
@@ -88,14 +90,15 @@ export default async function DisputePage({ params }: { params: { id: string } }
     <div className="space-y-8 pt-8 relative">
       <AmbientSparkles intervalMs={2200} />
 
-      {/* Breadcrumb */}
-      <div>
+      {/* Breadcrumb + actions */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-accent-pink transition"
+          className="inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-accent-pink transition print:hidden"
         >
           <span>←</span> All disputes
         </Link>
+        <PrintPdfButton />
       </div>
 
       {/* HEADLINE */}
