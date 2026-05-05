@@ -12,10 +12,31 @@ export const revalidate = 0;
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-const RECOMMENDATION_STYLES: Record<string, string> = {
-  FIGHT: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  REFUND: 'bg-red-100 text-red-800 border-red-200',
-  'NEEDS AM CALL': 'bg-amber-100 text-amber-800 border-amber-200',
+const RECOMMENDATION_STYLES: Record<
+  string,
+  { bg: string; border: string; text: string; accent: string; label: string }
+> = {
+  FIGHT: {
+    bg: 'bg-accent-green-bg/40',
+    border: 'border-accent-green/40',
+    text: 'text-accent-green',
+    accent: 'text-accent-green',
+    label: 'Fight this',
+  },
+  REFUND: {
+    bg: 'bg-accent-red-bg/40',
+    border: 'border-accent-red/40',
+    text: 'text-accent-red',
+    accent: 'text-accent-red',
+    label: 'Refund and accept',
+  },
+  'NEEDS AM CALL': {
+    bg: 'bg-accent-yellow-bg/40',
+    border: 'border-accent-yellow/40',
+    text: 'text-accent-yellow',
+    accent: 'text-accent-yellow',
+    label: 'Needs AM call',
+  },
 };
 
 export default async function DisputePage({ params }: { params: { id: string } }) {
@@ -26,14 +47,13 @@ export default async function DisputePage({ params }: { params: { id: string } }
     result = await getDispute(params.id);
   } catch (e: any) {
     return (
-      <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      <div className="rounded-2xl border border-accent-red/40 bg-accent-red-bg/40 px-5 py-4 text-sm text-accent-red mt-12">
         Failed to load dispute: {e?.message ?? 'unknown error'}
       </div>
     );
   }
   const { dispute, charge, customer } = result;
 
-  // Try to enrich. If anything fails (Metabase down, key mismatch), we still render.
   let baseSheet = null;
   let commsEvents: Awaited<ReturnType<typeof getCommsForEntity>> = [];
   let enrichmentError: string | null = null;
@@ -82,51 +102,103 @@ export default async function DisputePage({ params }: { params: { id: string } }
     ? Math.max(0, Math.ceil((evidenceDueDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
     : null;
 
+  const recStyle =
+    RECOMMENDATION_STYLES[report.recommendation] ??
+    {
+      bg: 'bg-elevated',
+      border: 'border-line',
+      text: 'text-ink',
+      accent: 'text-ink',
+      label: report.recommendation,
+    };
+
+  const customerName =
+    customer?.name || charge?.billing_details?.name || baseSheet?.bizname || 'Dispute';
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 pt-8">
+      {/* Breadcrumb */}
       <div>
-        <Link href="/" className="text-sm text-zoca-brand hover:underline">
-          ← All disputes
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-accent-pink transition"
+        >
+          <span>←</span> All disputes
         </Link>
-        <h1 className="text-2xl font-semibold text-zoca-ink mt-2">
-          {customer?.name || charge?.billing_details?.name || baseSheet?.bizname || 'Dispute'}
-        </h1>
-        <p className="text-sm text-zoca-muted">
-          {dispute.id} · {formatAmount(dispute.amount, dispute.currency)} · reason: {dispute.reason}
-        </p>
       </div>
 
-      {/* Recommendation banner */}
-      <div
-        className={`rounded-lg border px-5 py-4 ${
-          RECOMMENDATION_STYLES[report.recommendation] ?? 'bg-zinc-100 text-zinc-800 border-zinc-200'
-        }`}
+      {/* HEADLINE */}
+      <header className="space-y-2">
+        <div className="flex items-center gap-2 text-xs text-ink-dim">
+          <span className="font-mono">{dispute.id}</span>
+          <span>·</span>
+          <span>opened {new Date(dispute.created * 1000).toISOString().slice(0, 10)}</span>
+        </div>
+        <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight">
+          {customerName.includes(' ') ? (
+            <>
+              {customerName.split(' ').slice(0, -1).join(' ')}{' '}
+              <span className="text-pink-gradient">
+                {customerName.split(' ').slice(-1)}
+              </span>
+            </>
+          ) : (
+            <span className="text-pink-gradient">{customerName}</span>
+          )}
+        </h1>
+        <p className="text-base text-ink-muted">
+          {formatAmount(dispute.amount, dispute.currency)} · reason:{' '}
+          <span className="text-ink">{dispute.reason}</span>
+        </p>
+      </header>
+
+      {/* RECOMMENDATION HERO */}
+      <section
+        className={`rounded-2xl border ${recStyle.border} ${recStyle.bg} backdrop-blur-sm p-6 sm:p-8`}
       >
-        <div className="text-xs uppercase tracking-wide opacity-70">Recommendation</div>
-        <div className="text-2xl font-semibold mt-1">{report.recommendation}</div>
-        <div className="text-sm mt-1 opacity-90">{report.rationale}</div>
+        <div className="text-[10px] uppercase tracking-wider font-semibold text-ink-dim">
+          Recommendation
+        </div>
+        <div className={`mt-2 text-4xl sm:text-5xl font-extrabold ${recStyle.accent}`}>
+          {recStyle.label}
+        </div>
+        <div className="mt-3 text-base text-ink leading-relaxed max-w-3xl">{report.rationale}</div>
         {evidenceDueDate && (
-          <div className="text-xs mt-2 opacity-70">
-            Evidence due {evidenceDueDate.toISOString().slice(0, 10)}
-            {daysUntilDue !== null && ` · ${daysUntilDue} days remaining`}
+          <div className="mt-4 text-sm text-ink-muted">
+            <span className="text-ink-dim">Evidence due</span>{' '}
+            <span className="text-ink font-medium tabular-nums">
+              {evidenceDueDate.toISOString().slice(0, 10)}
+            </span>
+            {daysUntilDue !== null && (
+              <>
+                {' '}
+                <span className="text-ink-dim">·</span>{' '}
+                <span className={daysUntilDue <= 3 ? 'text-accent-pink' : 'text-ink-muted'}>
+                  {daysUntilDue} days remaining
+                </span>
+              </>
+            )}
           </div>
         )}
-      </div>
+      </section>
 
       {enrichmentError && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-2xl border border-accent-yellow/40 bg-accent-yellow-bg/40 px-5 py-3 text-sm text-accent-yellow">
           Enrichment partially failed: {enrichmentError}
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left column: Stripe + customer info */}
-        <div className="lg:col-span-1 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* LEFT: Stripe + Customer */}
+        <div className="lg:col-span-1 space-y-5">
           <Card title="Stripe">
             <Field label="Status" value={dispute.status.replace(/_/g, ' ')} />
             <Field label="Reason" value={dispute.reason} />
             <Field label="Amount" value={formatAmount(dispute.amount, dispute.currency)} />
-            <Field label="Opened" value={new Date(dispute.created * 1000).toISOString().slice(0, 10)} />
+            <Field
+              label="Opened"
+              value={new Date(dispute.created * 1000).toISOString().slice(0, 10)}
+            />
             <Field
               label="Evidence due"
               value={evidenceDueDate ? evidenceDueDate.toISOString().slice(0, 10) : '—'}
@@ -141,12 +213,12 @@ export default async function DisputePage({ params }: { params: { id: string } }
               }
               mono
             />
-            <div className="pt-2">
+            <div className="pt-3 mt-2 border-t border-line-soft">
               <a
                 href={`https://dashboard.stripe.com/disputes/${dispute.id}`}
                 target="_blank"
                 rel="noreferrer"
-                className="text-sm text-zoca-brand hover:underline"
+                className="text-sm text-accent-pink hover:text-accent-pink-strong transition"
               >
                 Open in Stripe ↗
               </a>
@@ -159,6 +231,7 @@ export default async function DisputePage({ params }: { params: { id: string } }
             <Field label="Stripe customer" value={customer?.id ?? '—'} mono />
             {baseSheet ? (
               <>
+                <div className="border-t border-line-soft my-2"></div>
                 <Field label="Business" value={baseSheet.bizname} />
                 <Field label="Entity ID" value={baseSheet.entity_id} mono />
                 <Field label="Chargebee ID" value={baseSheet.customer_id} mono />
@@ -168,100 +241,137 @@ export default async function DisputePage({ params }: { params: { id: string } }
                 <Field label="Status" value={baseSheet.chrone_zoca_status || '—'} />
               </>
             ) : (
-              <p className="text-sm text-amber-700 mt-2">
-                Could not match this customer to a Zoca BaseSheet record. Comms enrichment is skipped.
+              <p className="text-sm text-accent-yellow mt-3 pt-3 border-t border-line-soft">
+                Could not match this customer to a Zoca BaseSheet record. Comms enrichment is
+                skipped.
               </p>
             )}
           </Card>
         </div>
 
-        {/* Right column: signals + comms + draft */}
-        <div className="lg:col-span-2 space-y-6">
+        {/* RIGHT: Signals + Comms + Draft */}
+        <div className="lg:col-span-2 space-y-5">
           <Card title="Signals">
-            <div className="text-xs text-zoca-muted mb-2 flex items-center gap-2">
+            <div className="flex items-center gap-2 mb-4">
               <span
-                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
                   report.source === 'llm'
-                    ? 'bg-indigo-100 text-indigo-800'
-                    : 'bg-zinc-200 text-zinc-700'
+                    ? 'bg-accent-purple-bg text-accent-purple'
+                    : 'bg-elevated text-ink-muted'
                 }`}
               >
-                {report.source === 'llm' ? 'Scored by Claude' : 'Scored by regex (no LLM key)'}
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    report.source === 'llm' ? 'bg-accent-purple' : 'bg-ink-dim'
+                  }`}
+                ></span>
+                {report.source === 'llm' ? 'Scored by Claude' : 'Scored by regex'}
+              </span>
+              <span className="text-xs text-ink-dim">
+                Total score:{' '}
+                <span className="text-ink font-medium">{report.score}</span>
               </span>
               {report.llmError && (
-                <span className="text-amber-700" title={report.llmError}>
-                  · LLM call failed, fell back to regex
+                <span className="text-xs text-accent-yellow" title={report.llmError}>
+                  LLM call failed, fell back to regex
                 </span>
               )}
             </div>
             <div className="space-y-2">
-              {report.signals.map((s) => (
-                <div
-                  key={s.id}
-                  className={`rounded-md border px-3 py-2 text-sm ${
-                    s.fired
-                      ? s.weight > 0
-                        ? 'border-emerald-200 bg-emerald-50'
-                        : 'border-red-200 bg-red-50'
-                      : 'border-zinc-200 bg-zinc-50 opacity-60'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-zoca-ink">{s.label}</span>
-                    <span
-                      className={`text-xs px-1.5 py-0.5 rounded ${
-                        s.weight > 0 ? 'bg-emerald-200 text-emerald-800' : 'bg-red-200 text-red-800'
-                      }`}
-                    >
-                      {s.weight > 0 ? `+${s.weight}` : s.weight}
-                    </span>
+              {report.signals.map((s) => {
+                const isPositive = s.weight > 0;
+                const fired = s.fired;
+                return (
+                  <div
+                    key={s.id}
+                    className={`rounded-xl border px-4 py-3 transition ${
+                      fired
+                        ? isPositive
+                          ? 'border-accent-green/30 bg-accent-green-bg/30'
+                          : 'border-accent-pink/30 bg-accent-pink-bg/30'
+                        : 'border-line-soft bg-elevated/30 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`font-medium text-sm ${fired ? 'text-ink' : 'text-ink-muted'}`}>
+                        {s.label}
+                      </span>
+                      <span
+                        className={`text-xs font-mono px-1.5 py-0.5 rounded tabular-nums ${
+                          isPositive
+                            ? 'bg-accent-green-bg text-accent-green'
+                            : 'bg-accent-pink-bg text-accent-pink'
+                        }`}
+                      >
+                        {isPositive ? `+${s.weight}` : s.weight}
+                      </span>
+                    </div>
+                    {s.evidence && (
+                      <div className="text-xs text-ink-muted mt-1.5 leading-relaxed">
+                        {s.evidence}
+                      </div>
+                    )}
                   </div>
-                  {s.evidence && <div className="text-xs text-zoca-muted mt-1">{s.evidence}</div>}
-                </div>
-              ))}
+                );
+              })}
             </div>
-            <div className="mt-3 text-xs text-zoca-muted">Total score: {report.score}</div>
           </Card>
 
-          <Card title={`Communications (last 90 days · ${counts.total} events)`}>
-            <div className="text-xs text-zoca-muted mb-3 flex flex-wrap gap-3">
-              <span>Team→client: {counts.bySide.team}</span>
-              <span>Client→team: {counts.bySide.client}</span>
-              <span>App chat: {counts.byChannel.app_chat ?? 0}</span>
-              <span>Email: {counts.byChannel.email ?? 0}</span>
-              <span>Phone: {counts.byChannel.phone ?? 0}</span>
-              <span>SMS: {counts.byChannel.sms ?? 0}</span>
-              <span>Video: {counts.byChannel.video ?? 0}</span>
+          <Card title={`Communications · last 90 days · ${counts.total} events`}>
+            <div className="text-xs text-ink-dim mb-4 flex flex-wrap gap-x-4 gap-y-1">
+              <span>
+                <span className="text-ink-dim">Team→client:</span>{' '}
+                <span className="text-ink">{counts.bySide.team}</span>
+              </span>
+              <span>
+                <span className="text-ink-dim">Client→team:</span>{' '}
+                <span className="text-ink">{counts.bySide.client}</span>
+              </span>
+              <span>App chat: <span className="text-ink">{counts.byChannel.app_chat ?? 0}</span></span>
+              <span>Email: <span className="text-ink">{counts.byChannel.email ?? 0}</span></span>
+              <span>Phone: <span className="text-ink">{counts.byChannel.phone ?? 0}</span></span>
+              <span>SMS: <span className="text-ink">{counts.byChannel.sms ?? 0}</span></span>
+              <span>Video: <span className="text-ink">{counts.byChannel.video ?? 0}</span></span>
             </div>
             {commsEvents.length === 0 ? (
-              <p className="text-sm text-zoca-muted">No comms found in the last 90 days.</p>
+              <p className="text-sm text-ink-dim">No comms found in the last 90 days.</p>
             ) : (
-              <ol className="space-y-2 max-h-96 overflow-y-auto pr-2">
+              <ol className="space-y-2 max-h-[28rem] overflow-y-auto pr-2">
                 {commsEvents.slice(0, 100).map((e, i) => (
                   <li
                     key={i}
-                    className={`text-xs p-2 rounded border ${
+                    className={`text-xs p-3 rounded-xl border ${
                       e.side === 'team'
-                        ? 'border-blue-100 bg-blue-50'
+                        ? 'border-accent-purple/20 bg-accent-purple-bg/20'
                         : e.side === 'client'
-                        ? 'border-amber-100 bg-amber-50'
-                        : 'border-zinc-100 bg-zinc-50'
+                        ? 'border-accent-pink/20 bg-accent-pink-bg/20'
+                        : 'border-line-soft bg-elevated/30'
                     }`}
                   >
-                    <div className="flex items-center justify-between text-zoca-muted">
+                    <div className="flex items-center justify-between text-ink-dim">
                       <span>
-                        <strong className="text-zoca-ink">
+                        <strong
+                          className={
+                            e.side === 'team'
+                              ? 'text-accent-purple'
+                              : e.side === 'client'
+                              ? 'text-accent-pink'
+                              : 'text-ink-muted'
+                          }
+                        >
                           {e.side === 'team' ? 'Zoca' : e.side === 'client' ? 'Customer' : '—'}
-                        </strong>{' '}
-                        · {e.channel}
+                        </strong>
+                        <span className="ml-1.5">· {e.channel}</span>
                       </span>
-                      <span>{new Date(e.createdAt).toISOString().slice(0, 16).replace('T', ' ')}</span>
+                      <span className="tabular-nums">
+                        {new Date(e.createdAt).toISOString().slice(0, 16).replace('T', ' ')}
+                      </span>
                     </div>
-                    <div className="mt-1 text-zoca-ink whitespace-pre-wrap break-words">
-                      {e.body || <span className="italic text-zoca-muted">(no body)</span>}
+                    <div className="mt-1.5 text-ink whitespace-pre-wrap break-words">
+                      {e.body || <span className="italic text-ink-dim">(no body)</span>}
                     </div>
                     {e.extras && (
-                      <div className="mt-1 text-zoca-muted">
+                      <div className="mt-1.5 text-ink-dim">
                         {Object.entries(e.extras)
                           .map(([k, v]) => `${k}: ${v}`)
                           .join(' · ')}
@@ -284,8 +394,10 @@ export default async function DisputePage({ params }: { params: { id: string } }
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="bg-white border border-zoca-border rounded-lg p-5">
-      <h2 className="text-sm font-semibold text-zoca-ink uppercase tracking-wide mb-3">{title}</h2>
+    <section className="bg-surface/50 backdrop-blur-sm border border-line rounded-2xl p-5 sm:p-6">
+      <h2 className="text-[10px] font-semibold text-ink-dim uppercase tracking-wider mb-4">
+        {title}
+      </h2>
       <div className="space-y-1 text-sm">{children}</div>
     </section>
   );
@@ -293,9 +405,13 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 
 function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="grid grid-cols-3 gap-2 py-1 text-sm">
-      <div className="text-zoca-muted col-span-1">{label}</div>
-      <div className={`col-span-2 break-all ${mono ? 'font-mono text-xs' : ''}`}>{value}</div>
+    <div className="grid grid-cols-3 gap-3 py-1.5 text-sm">
+      <div className="text-ink-dim col-span-1">{label}</div>
+      <div
+        className={`col-span-2 break-all text-ink ${mono ? 'font-mono text-xs text-ink-muted' : ''}`}
+      >
+        {value}
+      </div>
     </div>
   );
 }

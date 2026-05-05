@@ -29,21 +29,21 @@ export default function CounterDraft({ draft, disputeId }: { draft: string; disp
       <div className="flex gap-2">
         <button
           onClick={copy}
-          className="px-3 py-1.5 text-sm bg-zoca-brand text-white rounded-md hover:bg-indigo-700 transition"
+          className="px-4 py-1.5 text-sm rounded-full bg-accent-pink-strong text-white hover:opacity-90 transition font-medium"
         >
-          {copied ? 'Copied!' : 'Copy markdown'}
+          {copied ? 'Copied' : 'Copy markdown'}
         </button>
         <button
           onClick={download}
-          className="px-3 py-1.5 text-sm bg-white border border-zoca-border text-zoca-ink rounded-md hover:bg-zoca-subtle transition"
+          className="px-4 py-1.5 text-sm rounded-full border border-line bg-elevated/50 text-ink hover:bg-elevated transition"
         >
           Download .md
         </button>
       </div>
-      <pre className="bg-zoca-subtle border border-zoca-border rounded-md p-4 text-xs whitespace-pre-wrap overflow-x-auto max-h-96">
+      <pre className="bg-canvas border border-line-soft rounded-xl p-4 text-xs whitespace-pre-wrap overflow-x-auto max-h-96 text-ink-muted font-mono leading-relaxed">
         {draft}
       </pre>
-      <p className="text-xs text-zoca-muted">
+      <p className="text-xs text-ink-dim">
         Drafts are template-generated. Always have an account manager review and tailor before
         submitting evidence to Stripe.
       </p>
