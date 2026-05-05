@@ -6,38 +6,16 @@ import { getCommsForEntity, commsCounts } from '@/lib/comms';
 import { scoreDispute } from '@/lib/signals';
 import { buildDraft } from '@/lib/draft';
 import CounterDraft from '@/components/CounterDraft';
+import RecommendationHero from '@/components/RecommendationHero';
+import ScoreGauge from '@/components/ScoreGauge';
+import SignalGrid from '@/components/SignalGrid';
+import ChannelMixBar from '@/components/ChannelMixBar';
+import AmbientSparkles from '@/components/AmbientSparkles';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const runtime = 'nodejs';
 export const maxDuration = 60;
-
-const RECOMMENDATION_STYLES: Record<
-  string,
-  { bg: string; border: string; text: string; accent: string; label: string }
-> = {
-  FIGHT: {
-    bg: 'bg-accent-green-bg/40',
-    border: 'border-accent-green/40',
-    text: 'text-accent-green',
-    accent: 'text-accent-green',
-    label: 'Fight this',
-  },
-  REFUND: {
-    bg: 'bg-accent-red-bg/40',
-    border: 'border-accent-red/40',
-    text: 'text-accent-red',
-    accent: 'text-accent-red',
-    label: 'Refund and accept',
-  },
-  'NEEDS AM CALL': {
-    bg: 'bg-accent-yellow-bg/40',
-    border: 'border-accent-yellow/40',
-    text: 'text-accent-yellow',
-    accent: 'text-accent-yellow',
-    label: 'Needs AM call',
-  },
-};
 
 export default async function DisputePage({ params }: { params: { id: string } }) {
   if (!params.id?.startsWith('du_')) notFound();
@@ -103,21 +81,13 @@ export default async function DisputePage({ params }: { params: { id: string } }
     ? Math.max(0, Math.ceil((evidenceDueDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
     : null;
 
-  const recStyle =
-    RECOMMENDATION_STYLES[report.recommendation] ??
-    {
-      bg: 'bg-elevated',
-      border: 'border-line',
-      text: 'text-ink',
-      accent: 'text-ink',
-      label: report.recommendation,
-    };
-
   const customerName =
     customer?.name || charge?.billing_details?.name || baseSheet?.bizname || 'Dispute';
 
   return (
-    <div className="space-y-8 pt-8">
+    <div className="space-y-8 pt-8 relative">
+      <AmbientSparkles intervalMs={2200} />
+
       {/* Breadcrumb */}
       <div>
         <Link
@@ -135,17 +105,8 @@ export default async function DisputePage({ params }: { params: { id: string } }
           <span>·</span>
           <span>opened {new Date(dispute.created * 1000).toISOString().slice(0, 10)}</span>
         </div>
-        <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight">
-          {customerName.includes(' ') ? (
-            <>
-              {customerName.split(' ').slice(0, -1).join(' ')}{' '}
-              <span className="text-pink-gradient">
-                {customerName.split(' ').slice(-1)}
-              </span>
-            </>
-          ) : (
-            <span className="text-pink-gradient">{customerName}</span>
-          )}
+        <h1 className="text-pink-shimmer text-4xl sm:text-5xl font-extrabold tracking-tight m-0">
+          {customerName}
         </h1>
         <p className="text-base text-ink-muted">
           {formatAmount(dispute.amount, dispute.currency)} · reason:{' '}
@@ -154,40 +115,54 @@ export default async function DisputePage({ params }: { params: { id: string } }
       </header>
 
       {/* RECOMMENDATION HERO */}
-      <section
-        className={`rounded-2xl border ${recStyle.border} ${recStyle.bg} backdrop-blur-sm p-6 sm:p-8`}
-      >
-        <div className="text-[10px] uppercase tracking-wider font-semibold text-ink-dim">
-          Recommendation
-        </div>
-        <div className={`mt-2 text-4xl sm:text-5xl font-extrabold ${recStyle.accent}`}>
-          {recStyle.label}
-        </div>
-        <div className="mt-3 text-base text-ink leading-relaxed max-w-3xl">{report.rationale}</div>
-        {evidenceDueDate && (
-          <div className="mt-4 text-sm text-ink-muted">
-            <span className="text-ink-dim">Evidence due</span>{' '}
-            <span className="text-ink font-medium tabular-nums">
-              {evidenceDueDate.toISOString().slice(0, 10)}
-            </span>
-            {daysUntilDue !== null && (
-              <>
-                {' '}
-                <span className="text-ink-dim">·</span>{' '}
-                <span className={daysUntilDue <= 3 ? 'text-accent-pink' : 'text-ink-muted'}>
-                  {daysUntilDue} days remaining
-                </span>
-              </>
-            )}
-          </div>
-        )}
-      </section>
+      <RecommendationHero
+        recommendation={report.recommendation}
+        rationale={report.rationale}
+        evidenceDueIso={evidenceDueDate ? evidenceDueDate.toISOString().slice(0, 10) : null}
+        daysUntilDue={daysUntilDue}
+      />
 
       {enrichmentError && (
         <div className="rounded-2xl border border-accent-yellow/40 bg-accent-yellow-bg/40 px-5 py-3 text-sm text-accent-yellow">
           Enrichment partially failed: {enrichmentError}
         </div>
       )}
+
+      {/* SCORE + SIGNALS */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <Card title="Score">
+          <div className="flex justify-center mb-4">
+            <ScoreGauge score={report.score} />
+          </div>
+          <div className="flex items-center justify-center gap-2">
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                report.source === 'llm'
+                  ? 'bg-accent-purple-bg text-accent-purple'
+                  : 'bg-elevated text-ink-muted'
+              }`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  report.source === 'llm' ? 'bg-accent-purple' : 'bg-ink-dim'
+                }`}
+              ></span>
+              {report.source === 'llm' ? 'Scored by Claude' : 'Scored by regex'}
+            </span>
+          </div>
+        </Card>
+
+        <div className="lg:col-span-2">
+          <Card title="Signals">
+            <SignalGrid signals={report.signals} />
+            {report.llmError && (
+              <p className="text-xs text-accent-yellow mt-3" title={report.llmError}>
+                LLM call failed, fell back to regex.
+              </p>
+            )}
+          </Card>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* LEFT: Stripe + Customer */}
@@ -250,76 +225,10 @@ export default async function DisputePage({ params }: { params: { id: string } }
           </Card>
         </div>
 
-        {/* RIGHT: Signals + Comms + Draft */}
+        {/* RIGHT: Comms + Draft */}
         <div className="lg:col-span-2 space-y-5">
-          <Card title="Signals">
-            <div className="flex items-center gap-2 mb-4">
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                  report.source === 'llm'
-                    ? 'bg-accent-purple-bg text-accent-purple'
-                    : 'bg-elevated text-ink-muted'
-                }`}
-              >
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    report.source === 'llm' ? 'bg-accent-purple' : 'bg-ink-dim'
-                  }`}
-                ></span>
-                {report.source === 'llm' ? 'Scored by Claude' : 'Scored by regex'}
-              </span>
-              <span className="text-xs text-ink-dim">
-                Total score:{' '}
-                <span className="text-ink font-medium">{report.score}</span>
-              </span>
-              {report.llmError && (
-                <span className="text-xs text-accent-yellow" title={report.llmError}>
-                  LLM call failed, fell back to regex
-                </span>
-              )}
-            </div>
-            <div className="space-y-2">
-              {report.signals.map((s) => {
-                const isPositive = s.weight > 0;
-                const fired = s.fired;
-                return (
-                  <div
-                    key={s.id}
-                    className={`rounded-xl border px-4 py-3 transition ${
-                      fired
-                        ? isPositive
-                          ? 'border-accent-green/30 bg-accent-green-bg/30'
-                          : 'border-accent-pink/30 bg-accent-pink-bg/30'
-                        : 'border-line-soft bg-elevated/30 opacity-60'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`font-medium text-sm ${fired ? 'text-ink' : 'text-ink-muted'}`}>
-                        {s.label}
-                      </span>
-                      <span
-                        className={`text-xs font-mono px-1.5 py-0.5 rounded tabular-nums ${
-                          isPositive
-                            ? 'bg-accent-green-bg text-accent-green'
-                            : 'bg-accent-pink-bg text-accent-pink'
-                        }`}
-                      >
-                        {isPositive ? `+${s.weight}` : s.weight}
-                      </span>
-                    </div>
-                    {s.evidence && (
-                      <div className="text-xs text-ink-muted mt-1.5 leading-relaxed">
-                        {s.evidence}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-
           <Card title={`Communications · last 90 days · ${counts.total} events`}>
-            <div className="text-xs text-ink-dim mb-4 flex flex-wrap gap-x-4 gap-y-1">
+            <div className="text-xs text-ink-dim mb-3 flex flex-wrap gap-x-4 gap-y-1">
               <span>
                 <span className="text-ink-dim">Team→client:</span>{' '}
                 <span className="text-ink">{counts.bySide.team}</span>
@@ -328,60 +237,66 @@ export default async function DisputePage({ params }: { params: { id: string } }
                 <span className="text-ink-dim">Client→team:</span>{' '}
                 <span className="text-ink">{counts.bySide.client}</span>
               </span>
-              <span>App chat: <span className="text-ink">{counts.byChannel.app_chat ?? 0}</span></span>
-              <span>Email: <span className="text-ink">{counts.byChannel.email ?? 0}</span></span>
-              <span>Phone: <span className="text-ink">{counts.byChannel.phone ?? 0}</span></span>
-              <span>SMS: <span className="text-ink">{counts.byChannel.sms ?? 0}</span></span>
-              <span>Video: <span className="text-ink">{counts.byChannel.video ?? 0}</span></span>
             </div>
-            {commsEvents.length === 0 ? (
-              <p className="text-sm text-ink-dim">No comms found in the last 90 days.</p>
-            ) : (
-              <ol className="space-y-2 max-h-[28rem] overflow-y-auto pr-2">
-                {commsEvents.slice(0, 100).map((e, i) => (
-                  <li
-                    key={i}
-                    className={`text-xs p-3 rounded-xl border ${
-                      e.side === 'team'
-                        ? 'border-accent-purple/20 bg-accent-purple-bg/20'
-                        : e.side === 'client'
-                        ? 'border-accent-pink/20 bg-accent-pink-bg/20'
-                        : 'border-line-soft bg-elevated/30'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-ink-dim">
-                      <span>
-                        <strong
-                          className={
-                            e.side === 'team'
-                              ? 'text-accent-purple'
-                              : e.side === 'client'
-                              ? 'text-accent-pink'
-                              : 'text-ink-muted'
-                          }
-                        >
-                          {e.side === 'team' ? 'Zoca' : e.side === 'client' ? 'Customer' : '—'}
-                        </strong>
-                        <span className="ml-1.5">· {e.channel}</span>
-                      </span>
-                      <span className="tabular-nums">
-                        {new Date(e.createdAt).toISOString().slice(0, 16).replace('T', ' ')}
-                      </span>
-                    </div>
-                    <div className="mt-1.5 text-ink whitespace-pre-wrap break-words">
-                      {e.body || <span className="italic text-ink-dim">(no body)</span>}
-                    </div>
-                    {e.extras && (
-                      <div className="mt-1.5 text-ink-dim">
-                        {Object.entries(e.extras)
-                          .map(([k, v]) => `${k}: ${v}`)
-                          .join(' · ')}
+            <ChannelMixBar
+              counts={{
+                app_chat: counts.byChannel.app_chat || 0,
+                email: counts.byChannel.email || 0,
+                phone: counts.byChannel.phone || 0,
+                sms: counts.byChannel.sms || 0,
+                video: counts.byChannel.video || 0,
+              }}
+            />
+            <div className="mt-4 pt-4 border-t border-line-soft">
+              {commsEvents.length === 0 ? (
+                <p className="text-sm text-ink-dim">No comms found in the last 90 days.</p>
+              ) : (
+                <ol className="space-y-2 max-h-[28rem] overflow-y-auto pr-2">
+                  {commsEvents.slice(0, 100).map((e, i) => (
+                    <li
+                      key={i}
+                      className={`text-xs p-3 rounded-xl border ${
+                        e.side === 'team'
+                          ? 'border-accent-purple/20 bg-accent-purple-bg/20'
+                          : e.side === 'client'
+                          ? 'border-accent-pink/20 bg-accent-pink-bg/20'
+                          : 'border-line-soft bg-elevated/30'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-ink-dim">
+                        <span>
+                          <strong
+                            className={
+                              e.side === 'team'
+                                ? 'text-accent-purple'
+                                : e.side === 'client'
+                                ? 'text-accent-pink'
+                                : 'text-ink-muted'
+                            }
+                          >
+                            {e.side === 'team' ? 'Zoca' : e.side === 'client' ? 'Customer' : '—'}
+                          </strong>
+                          <span className="ml-1.5">· {e.channel}</span>
+                        </span>
+                        <span className="tabular-nums">
+                          {new Date(e.createdAt).toISOString().slice(0, 16).replace('T', ' ')}
+                        </span>
                       </div>
-                    )}
-                  </li>
-                ))}
-              </ol>
-            )}
+                      <div className="mt-1.5 text-ink whitespace-pre-wrap break-words">
+                        {e.body || <span className="italic text-ink-dim">(no body)</span>}
+                      </div>
+                      {e.extras && (
+                        <div className="mt-1.5 text-ink-dim">
+                          {Object.entries(e.extras)
+                            .map(([k, v]) => `${k}: ${v}`)
+                            .join(' · ')}
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
           </Card>
 
           <Card title="Counter-response draft">

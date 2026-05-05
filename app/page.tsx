@@ -1,12 +1,10 @@
 import { Suspense } from 'react';
 import { revalidateTag } from 'next/cache';
-import { listDisputes, formatAmount, isNeedsResponse, type DisputeListItem } from '@/lib/stripe';
+import { listDisputes, type DisputeListItem } from '@/lib/stripe';
 import { matchCustomer, type BaseSheetRow } from '@/lib/basesheet';
-import DisputesTable from '@/components/DisputesTable';
+import Dashboard from '@/components/Dashboard';
+import AmbientSparkles from '@/components/AmbientSparkles';
 
-// ISR: page cache for 60s. First request renders, subsequent requests hit
-// the cached HTML instantly. Stale data is served during background regen
-// (so users never wait on Stripe + BaseSheet again).
 export const revalidate = 60;
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -45,15 +43,6 @@ export default async function Page() {
     enrichmentError = e?.message ?? 'BaseSheet enrichment failed';
   }
 
-  const needsResponse = enriched.filter(isNeedsResponse);
-  const inReview = enriched.filter(
-    (d) => d.status === 'warning_under_review' || d.status === 'under_review',
-  );
-  const won = enriched.filter((d) => d.status === 'won');
-  const lost = enriched.filter((d) => d.status === 'lost');
-  const totalDue = needsResponse.reduce((sum, d) => sum + d.amount, 0);
-  const currency = enriched[0]?.currency ?? 'usd';
-
   const refreshTime = new Date().toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
@@ -63,20 +52,42 @@ export default async function Page() {
   const refreshDate = new Date().toISOString().slice(0, 10);
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-12 relative">
+      <AmbientSparkles />
+
       {/* HERO */}
-      <section className="pt-12 text-center">
+      <section className="pt-12 text-center relative">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-line bg-surface/50">
-          <span className="w-1.5 h-1.5 rounded-full bg-accent-green"></span>
+          <span className="live-dot"></span>
           <span className="text-sm text-ink-muted">Live Stripe disputes · auto-scored by Claude</span>
         </div>
 
-        <h1 className="mt-8 text-6xl sm:text-7xl lg:text-8xl font-extrabold tracking-tight leading-[0.95]">
-          Dispute <span className="text-pink-gradient">Analyser</span>
-          <span className="inline-block ml-2 align-top">
-            <Sparkle />
+        <div className="relative inline-block mt-8">
+          <span
+            aria-hidden
+            className="header-spark text-accent-pink text-sm"
+            style={{ top: '-12px', left: '-22px', animationDelay: '0s' }}
+          >
+            ✦
           </span>
-        </h1>
+          <span
+            aria-hidden
+            className="header-spark text-accent-purple text-xs"
+            style={{ top: '-4px', right: '-26px', animationDelay: '0.7s' }}
+          >
+            ✦
+          </span>
+          <span
+            aria-hidden
+            className="header-spark text-accent-yellow text-sm"
+            style={{ bottom: '8px', right: '-12px', animationDelay: '1.4s' }}
+          >
+            ✦
+          </span>
+          <h1 className="text-pink-shimmer text-6xl sm:text-7xl lg:text-8xl font-extrabold tracking-tight leading-[0.95] m-0">
+            Dispute Analyser
+          </h1>
+        </div>
 
         <p className="mt-6 max-w-2xl mx-auto text-base sm:text-lg text-ink-muted leading-relaxed">
           Which Stripe chargebacks Zoca should fight, refund, or escalate to an AM — surfaced from
@@ -93,9 +104,6 @@ export default async function Page() {
       {error && (
         <div className="rounded-2xl border border-accent-red/40 bg-accent-red-bg/40 px-5 py-4 text-sm text-accent-red">
           <strong className="text-ink">Could not fetch disputes:</strong> {error}
-          <br />
-          Verify <code className="text-ink">STRIPE_SECRET_KEY</code> is set on Vercel and has the
-          required restricted scopes (Disputes, Charges, Customers, Payment Intents, Reviews).
         </div>
       )}
 
@@ -121,41 +129,7 @@ export default async function Page() {
         </form>
       </section>
 
-      {/* STAT CARDS */}
-      <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <StatCard
-          label="Total disputes"
-          value={enriched.length.toString()}
-          subtext={`${new Set(enriched.map((d) => d.customerId).filter(Boolean)).size} unique customers`}
-          numberClass="text-ink"
-        />
-        <StatCard
-          label="Needs response"
-          value={needsResponse.length.toString()}
-          subtext={formatAmount(totalDue, currency) + ' at risk'}
-          numberClass="text-accent-pink-strong"
-        />
-        <StatCard
-          label="In review"
-          value={inReview.length.toString()}
-          subtext="awaiting Stripe"
-          numberClass="text-accent-yellow"
-        />
-        <StatCard
-          label="Won"
-          value={won.length.toString()}
-          subtext="evidence accepted"
-          numberClass="text-accent-green"
-        />
-        <StatCard
-          label="Lost"
-          value={lost.length.toString()}
-          subtext="charged back"
-          numberClass="text-accent-purple"
-        />
-      </section>
-
-      {/* INTERACTIVE TABS + TABLE (client component) */}
+      {/* INTERACTIVE DASHBOARD (client component) */}
       <Suspense
         fallback={
           <div className="rounded-2xl border border-line bg-surface/40 backdrop-blur-sm p-12 text-center text-ink-muted">
@@ -163,13 +137,11 @@ export default async function Page() {
           </div>
         }
       >
-        <DisputesTable disputes={enriched} enrichmentError={enrichmentError} />
+        <Dashboard disputes={enriched} enrichmentError={enrichmentError} />
       </Suspense>
     </div>
   );
 }
-
-// ─── components ────────────────────────────────────────
 
 function Feature({ children }: { children: React.ReactNode }) {
   return (
@@ -177,46 +149,5 @@ function Feature({ children }: { children: React.ReactNode }) {
       <span className="text-accent-pink">✻</span>
       <span>{children}</span>
     </span>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  subtext,
-  numberClass,
-}: {
-  label: string;
-  value: string;
-  subtext: string;
-  numberClass: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-line bg-surface/50 backdrop-blur-sm p-5 group hover:border-line-strong transition relative">
-      <div className="text-[10px] uppercase tracking-wider font-semibold text-ink-dim">{label}</div>
-      <div className={`mt-1 text-4xl font-extrabold tabular-nums ${numberClass}`}>{value}</div>
-      <div className="mt-1 text-xs text-ink-dim">{subtext}</div>
-      <span className="absolute top-5 right-5 text-ink-dim group-hover:text-ink transition text-sm">
-        →
-      </span>
-    </div>
-  );
-}
-
-function Sparkle() {
-  return (
-    <svg
-      width="32"
-      height="32"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden
-    >
-      <path
-        d="M12 2L13.5 8.5L20 10L13.5 11.5L12 18L10.5 11.5L4 10L10.5 8.5L12 2Z"
-        fill="#F0A5CE"
-      />
-    </svg>
   );
 }

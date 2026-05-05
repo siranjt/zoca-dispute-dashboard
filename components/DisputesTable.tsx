@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { DisputeListItem } from '@/lib/stripe';
@@ -43,9 +43,12 @@ function applyTab(disputes: EnrichedDispute[], tab: TabKey): EnrichedDispute[] {
 export default function DisputesTable({
   disputes,
   enrichmentError,
+  showTabs = true,
 }: {
   disputes: EnrichedDispute[];
   enrichmentError: string | null;
+  /** When false, skip the tab strip — Dashboard owns filtering. */
+  showTabs?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -54,15 +57,15 @@ export default function DisputesTable({
   const valid = TAB_ORDER.some((t) => t.key === initial) ? initial : 'needs_response';
   const [tab, setTab] = useState<TabKey>(valid as TabKey);
 
-  // Keep URL in sync (shallow — no server refetch)
   useEffect(() => {
+    if (!showTabs) return;
     const current = searchParams?.get('status');
     if (current === tab) return;
     const params = new URLSearchParams(searchParams?.toString() || '');
     params.set('status', tab);
     router.replace(`/?${params.toString()}`, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+  }, [tab, showTabs]);
 
   const counts = useMemo(
     () => ({
@@ -75,32 +78,36 @@ export default function DisputesTable({
     [disputes],
   );
 
-  const visible = useMemo(() => applyTab(disputes, tab), [disputes, tab]);
+  const visible = useMemo(
+    () => (showTabs ? applyTab(disputes, tab) : disputes),
+    [disputes, tab, showTabs],
+  );
 
   return (
     <section className="rounded-2xl border border-line bg-surface/40 backdrop-blur-sm overflow-hidden">
-      {/* Tab strip */}
-      <div className="px-5 pt-5 pb-4 flex flex-wrap items-center gap-2 border-b border-line-soft">
-        {TAB_ORDER.map((t) => {
-          const active = t.key === tab;
-          return (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition ${
-                active
-                  ? 'border border-accent-pink-strong bg-accent-pink-bg/40 text-accent-pink'
-                  : 'border border-line text-ink-muted hover:text-ink hover:border-line-strong'
-              }`}
-            >
-              {t.label}{' '}
-              <span className={active ? 'text-ink ml-1' : 'text-ink ml-1 font-semibold'}>
-                {counts[t.key]}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      {showTabs && (
+        <div className="px-5 pt-5 pb-4 flex flex-wrap items-center gap-2 border-b border-line-soft">
+          {TAB_ORDER.map((t) => {
+            const active = t.key === tab;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition ${
+                  active
+                    ? 'border border-accent-pink-strong bg-accent-pink-bg/40 text-accent-pink'
+                    : 'border border-line text-ink-muted hover:text-ink hover:border-line-strong'
+                }`}
+              >
+                {t.label}{' '}
+                <span className={active ? 'text-ink ml-1' : 'text-ink ml-1 font-semibold'}>
+                  {counts[t.key]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {enrichmentError && (
         <div className="px-5 py-3 text-xs text-accent-yellow bg-accent-yellow-bg/20 border-b border-line-soft">
@@ -133,103 +140,94 @@ export default function DisputesTable({
                 </td>
               </tr>
             )}
-            {visible.map((d) => (
-              <tr
-                key={d.id}
-                className="border-t border-line-soft hover:bg-elevated/40 transition group"
-              >
-                {/* Entity ID */}
-                <td className="px-5 py-4 font-mono text-[11px] text-ink-muted">
-                  {d.baseSheet?.entity_id ? (
-                    <span title={d.baseSheet.entity_id}>
-                      {d.baseSheet.entity_id.slice(0, 8)}…
-                    </span>
-                  ) : (
-                    <span className="text-ink-dim">—</span>
-                  )}
-                </td>
-
-                {/* Business name */}
-                <td className="px-3 py-4">
-                  {d.baseSheet?.bizname ? (
-                    <Link
-                      href={`/dispute/${d.id}`}
-                      className="text-ink group-hover:text-accent-pink transition font-medium"
-                    >
-                      {d.baseSheet.bizname}
-                    </Link>
-                  ) : (
-                    <Link
-                      href={`/dispute/${d.id}`}
-                      className="text-xs text-ink-dim italic group-hover:text-accent-pink transition"
-                    >
-                      no BaseSheet match
-                    </Link>
-                  )}
-                </td>
-
-                {/* AM Name */}
-                <td className="px-3 py-4 text-ink-muted">
-                  {d.baseSheet?.am_name?.trim() || <span className="text-ink-dim">—</span>}
-                </td>
-
-                {/* SP name + Email */}
-                <td className="px-3 py-4">
-                  <div className="text-ink">
-                    {d.baseSheet?.sp_name?.trim() || (
-                      <span className="text-ink-dim">—</span>
-                    )}
-                  </div>
-                  <div className="text-xs text-ink-dim mt-0.5">{d.customerEmail || '—'}</div>
-                </td>
-
-                {/* Amount */}
-                <td className="px-3 py-4 font-medium text-ink tabular-nums">
-                  {formatAmount(d.amount, d.currency)}
-                </td>
-
-                {/* Reason */}
-                <td className="px-3 py-4 text-ink-muted text-xs">{d.reason}</td>
-
-                {/* Status */}
-                <td className="px-3 py-4">
-                  <StatusPill status={d.status} />
-                </td>
-
-                {/* Charge date */}
-                <td className="px-3 py-4 text-ink-muted tabular-nums text-xs">
-                  {d.chargeCreated
-                    ? new Date(d.chargeCreated * 1000).toISOString().slice(0, 10)
-                    : '—'}
-                </td>
-
-                {/* Dispute opened */}
-                <td className="px-3 py-4 text-ink-muted tabular-nums text-xs">
-                  {new Date(d.created * 1000).toISOString().slice(0, 10)}
-                </td>
-
-                {/* Evidence due */}
-                <td className="px-3 py-4 text-ink-muted tabular-nums text-xs">
-                  {d.evidenceDueBy
-                    ? new Date(d.evidenceDueBy * 1000).toISOString().slice(0, 10)
-                    : '—'}
-                </td>
-
-                {/* Action */}
-                <td className="px-5 py-4 text-right whitespace-nowrap">
-                  <Link
-                    href={`/dispute/${d.id}`}
-                    className="text-accent-pink hover:text-accent-pink-strong text-sm font-medium"
-                  >
-                    Analyse →
-                  </Link>
-                </td>
-              </tr>
+            {visible.map((d, i) => (
+              <DisputeRow key={d.id} d={d} index={i} />
             ))}
           </tbody>
         </table>
       </div>
     </section>
+  );
+}
+
+function DisputeRow({ d, index }: { d: EnrichedDispute; index: number }) {
+  const ref = useRef<HTMLTableRowElement | null>(null);
+  const [entered, setEntered] = useState(false);
+  useEffect(() => {
+    setEntered(false);
+    const id = setTimeout(() => setEntered(true), 30 + Math.min(index, 30) * 35);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [d.id]);
+
+  return (
+    <tr
+      ref={ref}
+      className="border-t border-line-soft hover:bg-elevated/40 transition group"
+      style={{
+        opacity: entered ? 1 : 0,
+        transform: entered ? 'translateX(0)' : 'translateX(-8px)',
+        transition: 'opacity 0.4s, transform 0.4s, background-color 0.2s',
+      }}
+    >
+      <td className="px-5 py-4 font-mono text-[11px] text-ink-muted">
+        {d.baseSheet?.entity_id ? (
+          <span title={d.baseSheet.entity_id}>{d.baseSheet.entity_id.slice(0, 8)}…</span>
+        ) : (
+          <span className="text-ink-dim">—</span>
+        )}
+      </td>
+      <td className="px-3 py-4">
+        {d.baseSheet?.bizname ? (
+          <Link
+            href={`/dispute/${d.id}`}
+            className="text-ink group-hover:text-accent-pink transition font-medium"
+          >
+            {d.baseSheet.bizname}
+          </Link>
+        ) : (
+          <Link
+            href={`/dispute/${d.id}`}
+            className="text-xs text-ink-dim italic group-hover:text-accent-pink transition"
+          >
+            no BaseSheet match
+          </Link>
+        )}
+      </td>
+      <td className="px-3 py-4 text-ink-muted">
+        {d.baseSheet?.am_name?.trim() || <span className="text-ink-dim">—</span>}
+      </td>
+      <td className="px-3 py-4">
+        <div className="text-ink">
+          {d.baseSheet?.sp_name?.trim() || <span className="text-ink-dim">—</span>}
+        </div>
+        <div className="text-xs text-ink-dim mt-0.5">{d.customerEmail || '—'}</div>
+      </td>
+      <td className="px-3 py-4 font-medium text-ink tabular-nums">
+        {formatAmount(d.amount, d.currency)}
+      </td>
+      <td className="px-3 py-4 text-ink-muted text-xs">{d.reason}</td>
+      <td className="px-3 py-4">
+        <StatusPill status={d.status} />
+      </td>
+      <td className="px-3 py-4 text-ink-muted tabular-nums text-xs">
+        {d.chargeCreated ? new Date(d.chargeCreated * 1000).toISOString().slice(0, 10) : '—'}
+      </td>
+      <td className="px-3 py-4 text-ink-muted tabular-nums text-xs">
+        {new Date(d.created * 1000).toISOString().slice(0, 10)}
+      </td>
+      <td className="px-3 py-4 text-ink-muted tabular-nums text-xs">
+        {d.evidenceDueBy ? new Date(d.evidenceDueBy * 1000).toISOString().slice(0, 10) : '—'}
+      </td>
+      <td className="px-5 py-4 text-right whitespace-nowrap">
+        <Link
+          href={`/dispute/${d.id}`}
+          className="text-accent-pink hover:text-accent-pink-strong text-sm font-medium"
+        >
+          Analyse →
+        </Link>
+      </td>
+    </tr>
   );
 }
 
