@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { revalidateTag } from 'next/cache';
 import { listDisputes, formatAmount, isNeedsResponse, type DisputeListItem } from '@/lib/stripe';
 import { matchCustomer, type BaseSheetRow } from '@/lib/basesheet';
@@ -35,6 +36,7 @@ export default async function Page() {
         const baseSheet = await matchCustomer({
           customerId: d.customerId ?? null,
           email: d.customerEmail ?? null,
+          phone: d.customerPhone ?? null,
         });
         return { ...d, baseSheet };
       }),
@@ -154,7 +156,15 @@ export default async function Page() {
       </section>
 
       {/* INTERACTIVE TABS + TABLE (client component) */}
-      <DisputesTable disputes={enriched} enrichmentError={enrichmentError} />
+      <Suspense
+        fallback={
+          <div className="rounded-2xl border border-line bg-surface/40 backdrop-blur-sm p-12 text-center text-ink-muted">
+            Loading disputes…
+          </div>
+        }
+      >
+        <DisputesTable disputes={enriched} enrichmentError={enrichmentError} />
+      </Suspense>
     </div>
   );
 }

@@ -41,32 +41,113 @@ export const getBaseSheet = unstable_cache(
   { revalidate: 300, tags: ['basesheet'] },
 );
 
+// Generic email providers that should NEVER be used to fingerprint a business
+// — too many unrelated customers share these.
+const GENERIC_DOMAINS = new Set([
+  'gmail.com',
+  'googlemail.com',
+  'yahoo.com',
+  'ymail.com',
+  'hotmail.com',
+  'outlook.com',
+  'live.com',
+  'msn.com',
+  'icloud.com',
+  'me.com',
+  'mac.com',
+  'aol.com',
+  'protonmail.com',
+  'proton.me',
+  'pm.me',
+  'gmx.com',
+  'mail.com',
+  'comcast.net',
+  'sbcglobal.net',
+  'verizon.net',
+  'att.net',
+  'cox.net',
+  'charter.net',
+]);
+
+function emailDomain(email: string): string | null {
+  if (!email) return null;
+  const trimmed = email.trim().toLowerCase();
+  const at = trimmed.lastIndexOf('@');
+  if (at < 0) return null;
+  const domain = trimmed.slice(at + 1);
+  return domain || null;
+}
+
+function isCustomDomain(domain: string): boolean {
+  return !GENERIC_DOMAINS.has(domain);
+}
+
+function lastTenDigits(phone: string): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length < 10) return null;
+  return digits.slice(-10);
+}
+
 /**
  * Find a BaseSheet row that matches a Stripe customer. We try in order:
- *   1. Chargebee customer handle (passed as customerId)
- *   2. Any of app_email / gbp_email / dct_email matches the Stripe email (case-insensitive)
+ *   1. Chargebee customer handle (only if Stripe stored it; usually fails — different ID space)
+ *   2. Exact email match against any of app_email / gbp_email / dct_email
+ *   3. Custom-domain uniqueness match — same business email domain, generic providers excluded,
+ *      and only when exactly one BaseSheet row owns that domain (so we never silently mismatch)
+ *   4. Phone-number match on last 10 digits (BaseSheet.phone_number can hold multiple)
  * Returns null if no match.
  */
 export async function matchCustomer(opts: {
   customerId?: string | null;
   email?: string | null;
+  phone?: string | null;
 }): Promise<BaseSheetRow | null> {
   const rows = await getBaseSheet();
 
+  // 1. Chargebee handle direct match
   if (opts.customerId) {
     const handle = opts.customerId.trim();
     const byHandle = rows.find((r) => r.customer_id?.trim() === handle);
     if (byHandle) return byHandle;
   }
 
+  // 2. Exact email match
   if (opts.email) {
     const email = opts.email.trim().toLowerCase();
-    const byEmail = rows.find((r) =>
-      [r.app_email, r.gbp_email, r.dct_email]
-        .filter(Boolean)
-        .some((e) => e.trim().toLowerCase() === email),
-    );
-    if (byEmail) return byEmail;
+    if (email) {
+      const byEmail = rows.find((r) =>
+        [r.app_email, r.gbp_email, r.dct_email]
+          .filter(Boolean)
+          .some((e) => e.trim().toLowerCase() === email),
+      );
+      if (byEmail) return byEmail;
+
+      // 3. Custom-domain uniqueness match
+      const domain = emailDomain(email);
+      if (domain && isCustomDomain(domain)) {
+        const candidates = rows.filter((r) =>
+          [r.app_email, r.gbp_email, r.dct_email]
+            .filter(Boolean)
+            .some((e) => emailDomain(e) === domain),
+        );
+        if (candidates.length === 1) return candidates[0];
+      }
+    }
+  }
+
+  // 4. Phone-number match
+  if (opts.phone) {
+    const target = lastTenDigits(opts.phone);
+    if (target) {
+      const byPhone = rows.find((r) => {
+        if (!r.phone_number) return false;
+        return r.phone_number
+          .split(/[,;]/)
+          .some((p) => lastTenDigits(p) === target);
+      });
+      if (byPhone) return byPhone;
+    }
   }
 
   return null;

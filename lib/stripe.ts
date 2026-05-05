@@ -33,6 +33,7 @@ export type DisputeListItem = {
   customerId: string | null;
   customerEmail: string | null;
   customerName: string | null;
+  customerPhone: string | null;
   chargeId: string;
   paymentIntentId: string | null;
 };
@@ -121,6 +122,7 @@ function toListItem(d: Stripe.Dispute): DisputeListItem {
     customerId: customer?.id ?? (charge && typeof charge.customer === 'string' ? charge.customer : null),
     customerEmail: customer?.email ?? charge?.billing_details?.email ?? null,
     customerName: customer?.name ?? charge?.billing_details?.name ?? null,
+    customerPhone: customer?.phone ?? charge?.billing_details?.phone ?? null,
     chargeId: typeof d.charge === 'string' ? d.charge : (d.charge as Stripe.Charge).id,
     paymentIntentId:
       typeof d.payment_intent === 'string'

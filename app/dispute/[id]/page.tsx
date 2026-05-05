@@ -61,6 +61,7 @@ export default async function DisputePage({ params }: { params: { id: string } }
     baseSheet = await matchCustomer({
       customerId: charge?.customer && typeof charge.customer === 'string' ? charge.customer : null,
       email: customer?.email ?? charge?.billing_details?.email ?? null,
+      phone: customer?.phone ?? charge?.billing_details?.phone ?? null,
     });
     if (baseSheet?.entity_id) {
       commsEvents = await getCommsForEntity(baseSheet.entity_id, 90);
