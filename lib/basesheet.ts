@@ -1,6 +1,5 @@
 import 'server-only';
 import Papa from 'papaparse';
-import { unstable_cache } from 'next/cache';
 
 export type BaseSheetRow = {
   entity_id: string;
@@ -23,7 +22,11 @@ async function fetchBaseSheet(): Promise<BaseSheetRow[]> {
   const url = process.env.METABASE_BASESHEET_URL;
   if (!url) throw new Error('METABASE_BASESHEET_URL is not set');
 
-  const res = await fetch(url, { cache: 'no-store' });
+  // Cache through Next.js's built-in fetch cache so it plays nicely with ISR.
+  // 5-minute revalidate; tag-invalidatable via revalidateTag('basesheet').
+  const res = await fetch(url, {
+    next: { revalidate: 300, tags: ['basesheet'] },
+  });
   if (!res.ok) throw new Error(`BaseSheet fetch failed: ${res.status} ${res.statusText}`);
   const csv = await res.text();
   const parsed = Papa.parse<BaseSheetRow>(csv, { header: true, skipEmptyLines: true });
@@ -31,15 +34,10 @@ async function fetchBaseSheet(): Promise<BaseSheetRow[]> {
 }
 
 /**
- * BaseSheet rows cached for 5 minutes via Next.js unstable_cache.
- * Survives across Vercel serverless invocations — first request warms it,
- * everyone after gets it instantly.
+ * BaseSheet rows. Caching is handled via Next.js fetch cache (5 min, tag
+ * `basesheet`). Survives across Vercel serverless invocations.
  */
-export const getBaseSheet = unstable_cache(
-  async () => fetchBaseSheet(),
-  ['zoca-basesheet'],
-  { revalidate: 300, tags: ['basesheet'] },
-);
+export const getBaseSheet = fetchBaseSheet;
 
 // Generic email providers that should NEVER be used to fingerprint a business
 // — too many unrelated customers share these.
