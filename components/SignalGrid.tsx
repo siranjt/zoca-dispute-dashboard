@@ -38,7 +38,7 @@ function SignalCard({ signal, index }: { signal: Signal; index: number }) {
   }, [index, signal.fired, signal.weight]);
 
   const isPositive = signal.weight > 0;
-  const ringColor = isPositive ? '#4ADE80' : '#EC4899';
+  const ringColor = isPositive ? '#10B981' : '#EC4899';
   const baseClasses = signal.fired
     ? isPositive
       ? 'border-accent-green/30 bg-accent-green-bg/30'
@@ -60,13 +60,13 @@ function SignalCard({ signal, index }: { signal: Signal; index: number }) {
       <div className="flex items-center gap-3">
         <div className="relative flex-shrink-0" style={{ width: 32, height: 32 }}>
           <svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">
-            <circle cx="16" cy="16" r={radius} fill="none" stroke="rgba(167,151,196,0.15)" strokeWidth="3" />
+            <circle cx="16" cy="16" r={radius} fill="none" stroke="rgba(10,37,64,0.10)" strokeWidth="3" />
             <circle
               cx="16"
               cy="16"
               r={radius}
               fill="none"
-              stroke={signal.fired ? ringColor : 'rgba(167,151,196,0.15)'}
+              stroke={signal.fired ? ringColor : 'rgba(10,37,64,0.10)'}
               strokeWidth="3"
               strokeLinecap="round"
               transform="rotate(-90 16 16)"
@@ -77,7 +77,7 @@ function SignalCard({ signal, index }: { signal: Signal; index: number }) {
           </svg>
           <div
             className="absolute inset-0 flex items-center justify-center text-[10px] font-bold tabular-nums"
-            style={{ color: signal.fired ? ringColor : '#6F5E8E' }}
+            style={{ color: signal.fired ? ringColor : '#9CA3AF' }}
           >
             {signal.weight > 0 ? `+${signal.weight}` : signal.weight}
           </div>

@@ -11,11 +11,11 @@ export type AMRow = {
 };
 
 const GRADIENTS = [
-  ['#EC4899', '#A78BFA'],
-  ['#FDE047', '#4ADE80'],
-  ['#4ADE80', '#A78BFA'],
-  ['#F0A5CE', '#FDE047'],
-  ['#A78BFA', '#4ADE80'],
+  ['#2D5BFF', '#EC4899'],
+  ['#8B5CF6', '#2D5BFF'],
+  ['#10B981', '#2D5BFF'],
+  ['#F59E0B', '#EC4899'],
+  ['#8B5CF6', '#10B981'],
 ];
 
 function initials(name: string): string {
@@ -68,7 +68,7 @@ export default function AMBarChart({
         const isFirst = i === 0;
         const widthPct = (row.amount / max) * 100 * Math.min(1, progress * 1.2);
         const grad = GRADIENTS[hashIndex(row.name, GRADIENTS.length)];
-        const textOnGrad = grad[0] === '#FDE047' || grad[0] === '#F0A5CE' ? '#14092A' : '#fff';
+        const textOnGrad = grad[0] === '#F59E0B' ? '#0A2540' : '#fff';
 
         return (
           <button
@@ -115,7 +115,7 @@ export default function AMBarChart({
                       width: `${Math.min(100, Math.max(0, widthPct))}%`,
                       background: isFirst
                         ? `linear-gradient(90deg, ${grad[0]}, ${grad[1]})`
-                        : '#A78BFA',
+                        : '#2D5BFF',
                       transition: 'width 1.2s cubic-bezier(0.4, 0, 0.2, 1)',
                     }}
                   />

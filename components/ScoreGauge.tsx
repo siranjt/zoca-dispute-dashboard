@@ -24,7 +24,7 @@ export default function ScoreGauge({ score }: { score: number }) {
   const displayedScore = Math.round(clamped * animProgress);
   const pctOfMax = Math.abs(clamped) / MAX;
   const animPct = pctOfMax * animProgress;
-  const color = clamped >= 4 ? '#4ADE80' : clamped <= -2 ? '#F87171' : '#FDE047';
+  const color = clamped >= 4 ? '#10B981' : clamped <= -2 ? '#EF4444' : '#F59E0B';
 
   const radius = 42;
   const circ = 2 * Math.PI * radius;
@@ -40,7 +40,7 @@ export default function ScoreGauge({ score }: { score: number }) {
           role="img"
           aria-label={`Dispute score: ${clamped}`}
         >
-          <circle cx="50" cy="50" r={radius} fill="none" stroke="rgba(167,151,196,0.12)" strokeWidth="6" />
+          <circle cx="50" cy="50" r={radius} fill="none" stroke="rgba(10,37,64,0.08)" strokeWidth="6" />
           <circle
             cx="50"
             cy="50"

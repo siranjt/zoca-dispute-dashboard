@@ -50,8 +50,8 @@ export default function TopBusinesses({
               <span
                 className="inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold tabular-nums"
                 style={{
-                  background: isFirst ? 'rgba(236,72,153,0.20)' : 'rgba(167,139,250,0.18)',
-                  color: isFirst ? '#EC4899' : '#A78BFA',
+                  background: isFirst ? '#FCE7F3' : '#EFF6FF',
+                  color: isFirst ? '#BE185D' : '#2D5BFF',
                 }}
               >
                 {i + 1}
@@ -76,8 +76,8 @@ export default function TopBusinesses({
                 style={{
                   width: `${Math.min(100, Math.max(0, pct))}%`,
                   background: isFirst
-                    ? 'linear-gradient(90deg, #EC4899, #F0A5CE)'
-                    : '#A78BFA',
+                    ? 'linear-gradient(90deg, #2D5BFF, #8B5CF6, #EC4899)'
+                    : '#2D5BFF',
                   transition: 'width 1.1s cubic-bezier(0.4, 0, 0.2, 1)',
                 }}
               />

@@ -83,23 +83,27 @@ export default function DisputesOverTime({
         >
           <defs>
             <linearGradient id="dot-grad" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#EC4899" stopOpacity="0.45" />
-              <stop offset="100%" stopColor="#EC4899" stopOpacity="0.02" />
+              <stop offset="0%" stopColor="#EC4899" stopOpacity="0.30" />
+              <stop offset="100%" stopColor="#EC4899" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id="dot-line" x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0%" stopColor="#2D5BFF" />
+              <stop offset="50%" stopColor="#8B5CF6" />
+              <stop offset="100%" stopColor="#EC4899" />
             </linearGradient>
           </defs>
-          <line x1={PAD_X} x2={W - PAD_X} y1={PAD_TOP + innerH} y2={PAD_TOP + innerH} stroke="rgba(167,151,196,0.15)" strokeWidth="1" />
-          <line x1={PAD_X} x2={W - PAD_X} y1={PAD_TOP + innerH / 2} y2={PAD_TOP + innerH / 2} stroke="rgba(167,151,196,0.07)" strokeWidth="1" strokeDasharray="2 4" />
+          <line x1={PAD_X} x2={W - PAD_X} y1={PAD_TOP + innerH} y2={PAD_TOP + innerH} stroke="rgba(10,37,64,0.10)" strokeWidth="1" />
+          <line x1={PAD_X} x2={W - PAD_X} y1={PAD_TOP + innerH / 2} y2={PAD_TOP + innerH / 2} stroke="rgba(10,37,64,0.05)" strokeWidth="1" strokeDasharray="2 4" />
           {points.length > 0 && (
             <>
               <path d={areaPath} fill="url(#dot-grad)" />
               <polyline
                 points={polylinePoints}
                 fill="none"
-                stroke="#EC4899"
-                strokeWidth="2"
+                stroke="url(#dot-line)"
+                strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                style={{ filter: 'drop-shadow(0 0 6px rgba(236,72,153,0.4))' }}
               />
             </>
           )}

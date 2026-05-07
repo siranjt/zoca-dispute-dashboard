@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 
-const COLORS = ['#F0A5CE', '#A78BFA', '#FDE047', '#4ADE80'];
+const COLORS = ['#EC4899', '#8B5CF6', '#F59E0B', '#10B981', '#2D5BFF'];
 
 /**
  * Floating colored particles drifting up from the bottom of the host element.

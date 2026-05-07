@@ -6,9 +6,9 @@ export type StatusKey = 'needs_response' | 'in_review' | 'won' | 'lost';
 
 const SLICE_DEFS: { key: StatusKey; label: string; color: string }[] = [
   { key: 'needs_response', label: 'Needs response', color: '#EC4899' },
-  { key: 'in_review', label: 'In review', color: '#FDE047' },
-  { key: 'won', label: 'Won', color: '#4ADE80' },
-  { key: 'lost', label: 'Lost', color: '#A78BFA' },
+  { key: 'in_review', label: 'In review', color: '#F59E0B' },
+  { key: 'won', label: 'Won', color: '#10B981' },
+  { key: 'lost', label: 'Lost', color: '#8B5CF6' },
 ];
 
 export default function StatusDoughnut({
@@ -84,7 +84,7 @@ export default function StatusDoughnut({
           role="img"
           aria-label="Doughnut chart of dispute statuses"
         >
-          <circle cx={cx} cy={cy} r={radius} fill="none" stroke="rgba(167,151,196,0.08)" strokeWidth="14" />
+          <circle cx={cx} cy={cy} r={radius} fill="none" stroke="rgba(10,37,64,0.06)" strokeWidth="14" />
           {slices.map((s) => (
             <path
               key={s.key}

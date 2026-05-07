@@ -30,10 +30,10 @@ const STATUS_LABEL: Record<string, string> = {
 };
 const STATUS_COLOR: Record<string, string> = {
   needs_response: '#EC4899',
-  in_review: '#FDE047',
-  won: '#4ADE80',
-  lost: '#A78BFA',
-  all: '#F0A5CE',
+  in_review: '#F59E0B',
+  won: '#10B981',
+  lost: '#8B5CF6',
+  all: '#2D5BFF',
 };
 const URGENCY_LABEL: Record<UrgencyKey, string> = {
   critical: 'Due ≤3 days',
@@ -42,10 +42,10 @@ const URGENCY_LABEL: Record<UrgencyKey, string> = {
   plenty: 'Due 15+ days',
 };
 const URGENCY_COLOR: Record<UrgencyKey, string> = {
-  critical: '#F87171',
-  soon: '#FDE047',
-  this_week: '#A78BFA',
-  plenty: '#4ADE80',
+  critical: '#EF4444',
+  soon: '#F59E0B',
+  this_week: '#8B5CF6',
+  plenty: '#10B981',
 };
 
 function isNeedsResponse(d: { status: string }) {
@@ -222,10 +222,10 @@ export default function Dashboard({
 
   const filterColor: string =
     filter.type === 'tab'
-      ? STATUS_COLOR[filter.value] || '#F0A5CE'
+      ? STATUS_COLOR[filter.value] || '#2D5BFF'
       : filter.type === 'urgency'
         ? URGENCY_COLOR[filter.value]
-        : '#A78BFA';
+        : '#8B5CF6';
 
   function setTab(key: 'needs_response' | 'in_review' | 'won' | 'lost' | 'all') {
     setFilter({ type: 'tab', value: key });

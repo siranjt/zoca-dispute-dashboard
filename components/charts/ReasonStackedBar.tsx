@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 
 export type ReasonRow = { reason: string; count: number };
 
-const REASON_COLORS = ['#EC4899', '#A78BFA', '#FDE047', '#4ADE80', '#F0A5CE', '#A797C4', '#6F5E8E', '#C0DD97'];
+const REASON_COLORS = ['#EC4899', '#8B5CF6', '#F59E0B', '#10B981', '#2D5BFF', '#6B7280', '#EF4444', '#F472B6'];
 
 export default function ReasonStackedBar({
   rows,

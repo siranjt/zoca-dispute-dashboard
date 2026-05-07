@@ -9,41 +9,49 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Backgrounds — deep purple-black canvas
-        canvas: '#0A0617',
-        surface: '#14092A',
-        elevated: '#1A0F35',
-        input: '#1F1438',
+        // Backgrounds — light, airy
+        canvas: '#FFFFFF',
+        surface: '#FFFFFF',
+        elevated: '#F9FAFC',
+        input: '#F3F4F6',
 
-        // Borders — subtle purple
+        // Borders — soft cool grey
         line: {
-          DEFAULT: '#2A1B4D',
-          strong: '#3D2A66',
-          soft: '#1F1438',
+          DEFAULT: '#E3E8EE',
+          strong: '#DDE3F0',
+          soft: '#F3F4F6',
         },
 
-        // Text
+        // Ink (text) — navy primary, cooling shades
         ink: {
-          DEFAULT: '#FFFFFF',
-          muted: '#A797C4',
-          dim: '#6F5E8E',
-          faint: '#4C3F6B',
+          DEFAULT: '#0A2540',
+          muted: '#424553',
+          dim: '#6B7280',
+          faint: '#9CA3AF',
         },
 
-        // Accents
+        // Accents — saturated enough to read on white surfaces
         accent: {
-          pink: '#F0A5CE',
-          'pink-strong': '#EC4899',
-          'pink-bg': '#3D1A3A',
-          purple: '#A78BFA',
-          'purple-strong': '#8B5CF6',
-          'purple-bg': '#2D1B4E',
-          green: '#4ADE80',
-          'green-bg': '#1B3D2E',
-          yellow: '#FDE047',
-          'yellow-bg': '#3D341B',
-          red: '#F87171',
-          'red-bg': '#3D1B1B',
+          pink: '#EC4899',
+          'pink-strong': '#BE185D',
+          'pink-bg': '#FCE7F3',
+
+          purple: '#8B5CF6',
+          'purple-strong': '#6D28D9',
+          'purple-bg': '#EDE9FE',
+
+          blue: '#2D5BFF',
+          'blue-strong': '#1E40AF',
+          'blue-bg': '#EFF6FF',
+
+          green: '#10B981',
+          'green-bg': '#D1FAE5',
+
+          yellow: '#F59E0B',
+          'yellow-bg': '#FEF3C7',
+
+          red: '#EF4444',
+          'red-bg': '#FEE2E2',
         },
       },
       fontFamily: {
@@ -51,9 +59,10 @@ const config: Config = {
         display: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       backgroundImage: {
-        'pink-gradient': 'linear-gradient(135deg, #FFFFFF 0%, #F0A5CE 100%)',
+        'pink-gradient':
+          'linear-gradient(135deg, #2D5BFF 0%, #8B5CF6 50%, #EC4899 100%)',
         'page-glow':
-          'radial-gradient(ellipse 80% 50% at 50% 0%, rgba(139, 92, 246, 0.15), transparent), radial-gradient(ellipse 60% 40% at 50% 100%, rgba(236, 72, 153, 0.08), transparent)',
+          'radial-gradient(ellipse 80% 50% at 30% 0%, rgba(236,72,153,0.10), transparent 60%), radial-gradient(ellipse 60% 50% at 90% 30%, rgba(45,91,255,0.06), transparent 60%)',
       },
     },
   },

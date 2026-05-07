@@ -5,10 +5,10 @@ import { useEffect, useState } from 'react';
 export type UrgencyKey = 'critical' | 'soon' | 'this_week' | 'plenty';
 
 const BANDS: { key: UrgencyKey; label: string; sub: string; color: string }[] = [
-  { key: 'critical', label: '≤3 days', sub: 'urgent', color: '#F87171' },
-  { key: 'soon', label: '4–7 days', sub: 'soon', color: '#FDE047' },
-  { key: 'this_week', label: '8–14 days', sub: 'this week', color: '#A78BFA' },
-  { key: 'plenty', label: '15+ days', sub: 'plenty of time', color: '#4ADE80' },
+  { key: 'critical', label: '≤3 days', sub: 'urgent', color: '#EF4444' },
+  { key: 'soon', label: '4–7 days', sub: 'soon', color: '#F59E0B' },
+  { key: 'this_week', label: '8–14 days', sub: 'this week', color: '#8B5CF6' },
+  { key: 'plenty', label: '15+ days', sub: 'plenty of time', color: '#10B981' },
 ];
 
 export default function EvidenceUrgency({
@@ -77,7 +77,7 @@ export default function EvidenceUrgency({
                     width: `${widthPct * progress}%`,
                     background:
                       b.key === 'critical'
-                        ? 'linear-gradient(90deg, #F87171, #EC4899)'
+                        ? 'linear-gradient(90deg, #EF4444, #EC4899)'
                         : b.color,
                     transition: `width 1.1s cubic-bezier(0.4, 0, 0.2, 1) ${i * 80}ms`,
                   }}

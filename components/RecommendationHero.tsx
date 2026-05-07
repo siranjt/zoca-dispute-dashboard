@@ -6,21 +6,21 @@ import AnimatedNumber from './AnimatedNumber';
 const REC_STYLES: Record<string, { word: string; color: string; bgClass: string; borderClass: string; breatheClass: string }> = {
   FIGHT: {
     word: 'FIGHT',
-    color: '#4ADE80',
+    color: '#10B981',
     bgClass: 'bg-accent-green-bg/40',
     borderClass: 'border-accent-green/40',
     breatheClass: 'breathe-green',
   },
   REFUND: {
     word: 'REFUND',
-    color: '#F87171',
+    color: '#EF4444',
     bgClass: 'bg-accent-red-bg/40',
     borderClass: 'border-accent-red/40',
     breatheClass: 'breathe-pink',
   },
   'NEEDS AM CALL': {
     word: 'NEEDS AM CALL',
-    color: '#FDE047',
+    color: '#F59E0B',
     bgClass: 'bg-accent-yellow-bg/40',
     borderClass: 'border-accent-yellow/40',
     breatheClass: 'breathe-pink',

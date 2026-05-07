@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 
-const CONFETTI_COLORS = ['#EC4899', '#A78BFA', '#FDE047', '#4ADE80', '#F0A5CE'];
+const CONFETTI_COLORS = ['#EC4899', '#8B5CF6', '#F59E0B', '#10B981', '#2D5BFF'];
 
 export default function CounterDraft({ draft, disputeId }: { draft: string; disputeId: string }) {
   const [copied, setCopied] = useState(false);

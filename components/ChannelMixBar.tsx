@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react';
 
 const CHANNEL_COLORS: Record<string, string> = {
   app_chat: '#EC4899',
-  email: '#A78BFA',
-  phone: '#FDE047',
-  sms: '#4ADE80',
-  video: '#F0A5CE',
+  email: '#8B5CF6',
+  phone: '#F59E0B',
+  sms: '#10B981',
+  video: '#2D5BFF',
 };
 const CHANNEL_LABEL: Record<string, string> = {
   app_chat: 'App chat',

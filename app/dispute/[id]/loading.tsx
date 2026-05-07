@@ -109,8 +109,8 @@ function Spinner({ small }: { small?: boolean }) {
         width: size,
         height: size,
         borderRadius: '50%',
-        border: `${border}px solid rgba(167,151,196,0.2)`,
-        borderTopColor: '#F0A5CE',
+        border: `${border}px solid rgba(10,37,64,0.10)`,
+        borderTopColor: '#EC4899',
       }}
     />
   );

@@ -9,7 +9,7 @@ type Props = {
  * Zoca wordmark — pulled from the live site (zoca.com) and inlined so it's
  * SSR-safe, free of CDN dependency, and crisp at any size.
  */
-export default function ZocaLogo({ width = 72, height = 18, fill = '#F3EDFD', className }: Props) {
+export default function ZocaLogo({ width = 72, height = 18, fill = '#0A2540', className }: Props) {
   return (
     <svg
       width={width}
