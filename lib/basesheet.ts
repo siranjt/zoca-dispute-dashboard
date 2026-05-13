@@ -22,10 +22,11 @@ async function fetchBaseSheet(): Promise<BaseSheetRow[]> {
   const url = process.env.METABASE_BASESHEET_URL;
   if (!url) throw new Error('METABASE_BASESHEET_URL is not set');
 
-  // Cache through Next.js's built-in fetch cache so it plays nicely with ISR.
-  // 5-minute revalidate; tag-invalidatable via revalidateTag('basesheet').
+  // Cache through Next.js's built-in fetch cache. 60-second revalidate +
+  // `basesheet` tag means the Refresh button still forces a fresh pull, and
+  // new BaseSheet rows show up within a minute on any deploy.
   const res = await fetch(url, {
-    next: { revalidate: 300, tags: ['basesheet'] },
+    next: { revalidate: 60, tags: ['basesheet'] },
   });
   if (!res.ok) throw new Error(`BaseSheet fetch failed: ${res.status} ${res.statusText}`);
   const csv = await res.text();
