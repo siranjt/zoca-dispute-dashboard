@@ -62,7 +62,12 @@ async function streamFilterByEntity(
   entityId: string,
   cutoff: number,
 ): Promise<CommsEvent[]> {
-  const res = await fetch(url, { cache: 'no-store' });
+  // Cache the underlying CSV for 5 minutes via Next.js fetch cache. The 1.6M-row
+  // comms files are slow to fetch+parse cold; without caching, every dispute
+  // open re-fetches them and we hit the Vercel 60s function timeout. Stream
+  // parsing still runs per-request (we filter to one entity_id), but the
+  // network roundtrip is now from cache after the first warm-up.
+  const res = await fetch(url, { next: { revalidate: 300, tags: ['comms'] } });
   if (!res.ok || !res.body) {
     throw new Error(`${channel} fetch failed: ${res.status}`);
   }

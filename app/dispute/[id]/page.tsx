@@ -59,31 +59,52 @@ export default async function DisputePage({ params }: { params: { id: string } }
     enrichmentError = e?.message ?? 'Enrichment failed';
   }
 
-  const report = await scoreDispute({
-    events: commsEvents,
-    disputeCreatedAt: dispute.created * 1000,
-    context: {
-      disputeReason: dispute.reason,
-      disputeAmount: dispute.amount,
-      disputeCurrency: dispute.currency,
-      customerName: customer?.name ?? charge?.billing_details?.name ?? undefined,
-      customerEmail: customer?.email ?? charge?.billing_details?.email ?? undefined,
-      bizName: baseSheet?.bizname,
-      accountManager: baseSheet?.am_name,
-      accountStatus: baseSheet?.chrone_zoca_status,
-    },
-  });
+  // Wrap scoring + draft in defensive try/catches so any single failure (Claude
+  // timeout, malformed response, bad signal data) renders a clear fallback
+  // instead of crashing the React stream with "Connection closed".
+  let report: Awaited<ReturnType<typeof scoreDispute>>;
+  let scoringError: string | null = null;
+  try {
+    report = await scoreDispute({
+      events: commsEvents,
+      disputeCreatedAt: dispute.created * 1000,
+      context: {
+        disputeReason: dispute.reason,
+        disputeAmount: dispute.amount,
+        disputeCurrency: dispute.currency,
+        customerName: customer?.name ?? charge?.billing_details?.name ?? undefined,
+        customerEmail: customer?.email ?? charge?.billing_details?.email ?? undefined,
+        bizName: baseSheet?.bizname,
+        accountManager: baseSheet?.am_name,
+        accountStatus: baseSheet?.chrone_zoca_status,
+      },
+    });
+  } catch (e: any) {
+    scoringError = e?.message ?? 'Scoring failed';
+    report = {
+      signals: [],
+      score: 0,
+      recommendation: 'NEEDS AM CALL',
+      rationale: `Could not score this dispute automatically: ${scoringError}. Review the comms timeline below manually.`,
+      source: 'regex',
+    };
+  }
 
   const counts = commsCounts(commsEvents);
 
-  const draft = buildDraft({
-    dispute,
-    charge,
-    customer,
-    baseSheet,
-    events: commsEvents,
-    report,
-  });
+  let draft = '';
+  try {
+    draft = buildDraft({
+      dispute,
+      charge,
+      customer,
+      baseSheet,
+      events: commsEvents,
+      report,
+    });
+  } catch (e: any) {
+    draft = `# Draft generation failed\n\nError: ${e?.message ?? 'unknown'}\n\nPlease regenerate or contact the dev team.`;
+  }
 
   const evidenceDueDate = dispute.evidence_details?.due_by
     ? new Date(dispute.evidence_details.due_by * 1000)
