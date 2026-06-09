@@ -126,12 +126,18 @@ export default async function DisputePage({ params }: { params: { id: string } }
     `Stripe dispute ${dispute.id.slice(0, 14)}…`;
 
   // Comms that signal trouble in the lead-up to this dispute (PDF-only section).
-  const dissatisfactionEvents = extractDissatisfactionEvidence({
-    events: commsEvents,
-    disputeCreatedAt: dispute.created * 1000,
-    recentDays: 10,
-    extendedDays: 30,
-  });
+  // Defensive: never let this throw — it's not critical to the page.
+  let dissatisfactionEvents: typeof commsEvents = [];
+  try {
+    dissatisfactionEvents = extractDissatisfactionEvidence({
+      events: commsEvents,
+      disputeCreatedAt: dispute.created * 1000,
+      recentDays: 10,
+      extendedDays: 30,
+    });
+  } catch {
+    dissatisfactionEvents = [];
+  }
 
   return (
     <div className="space-y-8 pt-8 relative">
