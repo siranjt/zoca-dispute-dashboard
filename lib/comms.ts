@@ -1,6 +1,7 @@
 import 'server-only';
 import Papa from 'papaparse';
 import { Readable } from 'node:stream';
+import { unstable_cache } from 'next/cache';
 
 export type CommsChannel = 'app_chat' | 'email' | 'phone' | 'video' | 'sms';
 
@@ -55,6 +56,11 @@ function normalizeSide(channel: CommsChannel, raw: any): 'client' | 'team' | 'un
 /**
  * Stream-parse a CSV from `url`, yielding only rows matching `entityId`.
  * Memory stays bounded — non-matching rows are dropped during parse.
+ *
+ * IMPORTANT: we use `cache: 'no-store'` deliberately. Caching these 50MB+ CSV
+ * bodies in Next.js's fetch cache double-buffers them in memory and triggers
+ * Vercel OOM kills (manifests as "Connection closed" on the client). Instead
+ * we cache the small *filtered* per-entity result in unstable_cache below.
  */
 async function streamFilterByEntity(
   url: string,
@@ -62,12 +68,7 @@ async function streamFilterByEntity(
   entityId: string,
   cutoff: number,
 ): Promise<CommsEvent[]> {
-  // Cache the underlying CSV for 5 minutes via Next.js fetch cache. The 1.6M-row
-  // comms files are slow to fetch+parse cold; without caching, every dispute
-  // open re-fetches them and we hit the Vercel 60s function timeout. Stream
-  // parsing still runs per-request (we filter to one entity_id), but the
-  // network roundtrip is now from cache after the first warm-up.
-  const res = await fetch(url, { next: { revalidate: 300, tags: ['comms'] } });
+  const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok || !res.body) {
     throw new Error(`${channel} fetch failed: ${res.status}`);
   }
@@ -118,29 +119,48 @@ async function streamFilterByEntity(
 
 /**
  * Get all comms for a given entity_id within `days` days back from now.
- * Streams all 5 channels in parallel; only matching rows are kept in memory.
+ *
+ * Strategy:
+ *  - Channels processed SEQUENTIALLY to keep peak memory low (one 50MB stream
+ *    at a time instead of 5×50MB concurrent). Trade-off: longer wall-clock
+ *    (~5x channel time), but no OOM kill.
+ *  - Filtered result is cached PER ENTITY via unstable_cache (10-min TTL).
+ *    Hot cache: ~50ms. Cold cache: ~20-40s but completes within Pro maxDuration.
+ *  - Each channel fetch uses `cache: 'no-store'` so the huge CSV bodies are
+ *    never buffered into the data cache.
  */
-export async function getCommsForEntity(entityId: string, days = 90): Promise<CommsEvent[]> {
+async function fetchCommsForEntityRaw(entityId: string, days: number): Promise<CommsEvent[]> {
   if (!entityId) return [];
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
-
   const channels: CommsChannel[] = ['app_chat', 'email', 'phone', 'video', 'sms'];
-  const results = await Promise.allSettled(
-    channels.map((c) => {
-      const url = URLS[c];
-      if (!url) return Promise.resolve([] as CommsEvent[]);
-      return streamFilterByEntity(url, c, entityId, cutoff);
-    }),
-  );
-
   const events: CommsEvent[] = [];
-  for (const r of results) {
-    if (r.status === 'fulfilled') events.push(...r.value);
+
+  for (const c of channels) {
+    const url = URLS[c];
+    if (!url) continue;
+    try {
+      const channelEvents = await streamFilterByEntity(url, c, entityId, cutoff);
+      events.push(...channelEvents);
+    } catch (err) {
+      // Per-channel failure is tolerable — other channels keep contributing.
+      // eslint-disable-next-line no-console
+      console.warn(`[comms] ${c} fetch failed for entity ${entityId}:`, err);
+    }
   }
 
   events.sort((a, b) => b.createdAt - a.createdAt);
   return events;
 }
+
+/**
+ * Public entrypoint. Cached per (entityId, days) for 10 minutes.
+ * Different entities have their own cache entries — cache key is automatic.
+ */
+export const getCommsForEntity = unstable_cache(
+  fetchCommsForEntityRaw,
+  ['comms-by-entity'],
+  { revalidate: 600, tags: ['comms'] },
+);
 
 export function commsCounts(events: CommsEvent[]) {
   const byChannel = events.reduce<Record<string, number>>((acc, e) => {
