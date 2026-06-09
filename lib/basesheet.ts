@@ -211,7 +211,7 @@ export async function matchCustomer(opts: {
     }
   }
 
-  // 6. Customer name → sp_name match
+  // 6. Customer name → sp_name match (exact normalised)
   if (opts.name) {
     const target = normalizeName(opts.name);
     if (target.length >= 4) {
@@ -221,6 +221,27 @@ export async function matchCustomer(opts: {
         return normalizeName(sp) === target;
       });
       if (candidates.length === 1) return candidates[0];
+
+      // 7. Token-overlap fallback: BaseSheet sp_name tokens ⊆ Stripe name tokens,
+      // OR vice versa, with at least 2 tokens overlap. Catches "Cristina Sousa"
+      // matching "Cristina Dias De Sousa" — same person, different middle names.
+      const targetTokens = new Set(target.split(' ').filter((t) => t.length >= 2));
+      if (targetTokens.size >= 2) {
+        const tokenCandidates = rows.filter((r) => {
+          const sp = normalizeName(r.sp_name || '');
+          if (!sp) return false;
+          const spTokens = new Set(sp.split(' ').filter((t) => t.length >= 2));
+          if (spTokens.size < 2) return false;
+          const intersection = [...spTokens].filter((t) => targetTokens.has(t));
+          // Require at least 2 overlapping tokens AND one set fully contained
+          // in the other (so "Anna Smith" doesn't match "Anna Jones").
+          if (intersection.length < 2) return false;
+          const subsetOfTarget = [...spTokens].every((t) => targetTokens.has(t));
+          const subsetOfSp = [...targetTokens].every((t) => spTokens.has(t));
+          return subsetOfTarget || subsetOfSp;
+        });
+        if (tokenCandidates.length === 1) return tokenCandidates[0];
+      }
     }
   }
 
