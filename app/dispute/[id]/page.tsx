@@ -16,7 +16,9 @@ import PrintPdfButton from '@/components/PrintPdfButton';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const runtime = 'nodejs';
-export const maxDuration = 60;
+// Pro tier — give the first cold-cache run room to warm 5 Metabase CSVs.
+// After that, comms is cached (5 min TTL) and most renders finish in <10s.
+export const maxDuration = 300;
 
 export default async function DisputePage({ params }: { params: { id: string } }) {
   if (!params.id?.startsWith('du_')) notFound();
